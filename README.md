@@ -757,57 +757,58 @@ MIT — see [LICENSE](LICENSE) for details.
 
 - **Documentation:** [https://temp-mail-detector.pyzit.com/docs](https://temp-mail-detector.pyzit.com/docs)
 - **Email:** [hi@pyzit.com](mailto:hi@pyzit.com)
-- **Issues:** [GitHub Issues](https://github.com/pyzit/pyzit-tempmail-php/issues)
+- **Issues:** [GitHub Issues](https://github.com/pyzit-org/temp-mail-detector-sdk-php/issues)
 
 ---
 
 ## Docker (Recommended)
 
-Docker is the recommended way to work with this SDK. It pins PHP and Composer to exact versions, so the project runs identically on any machine — your laptop, a new PC, a CI server, a teammate's computer. No PHP or Composer installation needed on the host.
+Docker is the recommended way to work with this SDK. It pins PHP and Composer to exact versions, so the project runs identically on any machine — your laptop, a new PC, a CI server, or a teammate's computer. No PHP or Composer installation is needed on the host.
 
 ### Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / Mac) or Docker Engine (Linux)
-- That's it.
+- PowerShell (Windows comes with it preinstalled)
 
 ### First-time setup
 
-```bash
-git clone https://github.com/pyzit/pyzit-tempmail-php.git
+```powershell
+git clone https://github.com/pyzit-org/temp-mail-detector-sdk-php.git
 cd pyzit-tempmail-php
 
 cp .env.example .env
 # edit .env and add your PYZIT_TOKEN
 
-make install   # builds the image + installs composer deps (~30s first time)
+.\dev.ps1 install
 ```
 
 ### Daily workflow
 
-```bash
-make test      # run the full test suite
-make shell     # open bash inside the container — run any php/composer command
-make example   # run example_usage.php against the real API
+```powershell
+.\dev.ps1 test        # run the full test suite
+.\dev.ps1 shell       # open bash inside the container
+.\dev.ps1 example     # run example_usage.php against the real API
 ```
 
-### All make commands
+### All available commands
 
-| Command                       | What it does                                     |
-|-------------------------------|--------------------------------------------------|
-| `make install`                | Build image + `composer install`                 |
-| `make test`                   | Run all 81 PHPUnit tests                         |
-| `make test-filter FILTER=Foo` | Run only tests matching `Foo`                    |
-| `make shell`                  | Interactive bash shell inside the container      |
-| `make example`                | Run `example_usage.php` (needs `PYZIT_TOKEN`)    |
-| `make build`                  | Rebuild the Docker image from scratch            |
-| `make clean`                  | Remove vendor volume + image (full reset)        |
+| Command                                      | What it does                                  |
+|---------------------------------------------|-----------------------------------------------|
+| `.\dev.ps1 install`                         | Build image + install Composer dependencies   |
+| `.\dev.ps1 test`                            | Run all PHPUnit tests                         |
+| `.\dev.ps1 test-filter -Filter FooTest`     | Run only tests matching `FooTest`             |
+| `.\dev.ps1 shell`                           | Open interactive bash shell inside container  |
+| `.\dev.ps1 example`                         | Run `example_usage.php`                       |
+| `.\dev.ps1 build`                           | Rebuild the Docker image                      |
+| `.\dev.ps1 clean`                           | Remove containers, volumes, and image         |
+| `.\dev.ps1 help`                            | Show all available commands                   |
 
-### Running without Make
+### Running Docker commands manually
 
-If you prefer raw docker commands:
+If you prefer raw Docker commands instead of `dev.ps1`:
 
 ```bash
-# install deps
+# install dependencies
 docker compose run --rm sdk "composer install"
 
 # run tests
@@ -822,19 +823,20 @@ docker compose run --rm sdk "vendor/bin/phpunit --testdox tests/ExceptionsTest.p
 
 ### Moving to a new machine
 
-```bash
+```powershell
 # clone the repo
-git clone https://github.com/pyzit/pyzit-tempmail-php.git
+git clone https://github.com/pyzit-org/temp-mail-detector-sdk-php.git
 cd pyzit-tempmail-php
 
-# copy your token
-cp .env.example .env && nano .env
+# configure environment
+cp .env.example .env
+# add your PYZIT_TOKEN to .env
 
-# everything set up in one command
-make install
+# install everything
+.\dev.ps1 install
 
-# verify
-make test
+# verify setup
+.\dev.ps1 test
 ```
 
-The Docker image pins **PHP 8.3** and **Composer 2.7**. To upgrade PHP, change the single `FROM` line in `Dockerfile`.
+The Docker image pins **PHP 8.3** and **Composer 2.7**. To upgrade PHP, change the `FROM` line in the `Dockerfile`.
