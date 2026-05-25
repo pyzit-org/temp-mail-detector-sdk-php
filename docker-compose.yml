@@ -1,0 +1,30 @@
+# ─────────────────────────────────────────────────────────────────
+# docker-compose.yml
+#
+# Usage:
+#   docker compose run --rm sdk test          # run tests
+#   docker compose run --rm sdk install       # composer install
+#   docker compose run --rm sdk shell         # interactive bash
+#   docker compose run --rm sdk typecheck     # (future: psalm/phpstan)
+#
+# Or use the Makefile shortcuts — see README.
+# ─────────────────────────────────────────────────────────────────
+
+services:
+  sdk:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # mount source so edits are reflected instantly — no rebuild needed
+    volumes:
+      - .:/app
+      - vendor_cache:/app/vendor   # vendor stays in a named volume — faster
+    environment:
+      - PYZIT_TOKEN=${PYZIT_TOKEN:-}
+    # override the default CMD with whichever command you pass in
+    entrypoint: ["sh", "-c"]
+    command: ["vendor/bin/phpunit --testdox"]
+
+# keep vendor in a docker-managed volume so host filesystem stays clean
+volumes:
+  vendor_cache:
