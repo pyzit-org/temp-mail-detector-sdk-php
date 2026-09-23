@@ -28,3 +28,4 @@ services:
 # keep vendor in a docker-managed volume so host filesystem stays clean
 volumes:
   vendor_cache:
+

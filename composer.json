@@ -1,11 +1,11 @@
 {
     "name": "pyzit/tempmail",
-    "version": "0.1.1",
+    "version": "1.0.0",
     "description": "Official PHP SDK for the Pyzit disposable email detector API",
     "type": "library",
     "license": "MIT",
     "keywords": ["email", "disposable", "tempmail", "validation", "pyzit"],
-    "homepage": "https://temp-mail-detector.pyzit.com",
+    "homepage": "https://api.pyzit.com",
     "authors": [
         {
             "name": "Pyzit",
