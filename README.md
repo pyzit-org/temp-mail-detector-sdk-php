@@ -1,842 +1,612 @@
-# pyzit/tempmail — PHP SDK
+<div align="center">
 
-Official PHP client for the [Pyzit Disposable Email Detector API](https://temp-mail-detector.pyzit.com).
-Detect throwaway and temporary email addresses before they reach your database.
+```
+██████╗ ██╗   ██╗███████╗██╗████████╗
+██╔══██╗╚██╗ ██╔╝╚══███╔╝██║╚══██╔══╝
+██████╔╝ ╚████╔╝   ███╔╝ ██║   ██║
+██╔═══╝   ╚██╔╝   ███╔╝  ██║   ██║
+██║        ██║   ███████╗██║   ██║
+╚═╝        ╚═╝   ╚══════╝╚═╝   ╚═╝
 
-[![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)](https://php.net)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-81%20passing-brightgreen)](#testing)
-
-```php
-$client = new TempMailClient('YOUR_API_TOKEN');
-$result = $client->check('user@mailnator.com');
-
-if ($result->isDisposable) {
-    throw new \RuntimeException('Disposable emails are not allowed.');
-}
+████████╗███████╗███╗   ███╗██████╗ ███╗   ███╗ █████╗ ██╗██╗
+╚══██╔══╝██╔════╝████╗ ████║██╔══██╗████╗ ████║██╔══██╗██║██║
+   ██║   █████╗  ██╔████╔██║██████╔╝██╔████╔██║███████║██║██║
+   ██║   ██╔══╝  ██║╚██╔╝██║██╔═══╝ ██║╚██╔╝██║██╔══██║██║██║
+   ██║   ███████╗██║ ╚═╝ ██║██║     ██║ ╚═╝ ██║██║  ██║██║███████╗
+   ╚═╝   ╚══════╝╚═╝     ╚═╝╚═╝     ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝╚══════╝
 ```
 
----
+**The official PHP SDK for the [Pyzit Disposable Email Detector API](https://temp-mail-detector.pyzit.com)**
 
-## Table of Contents
+Stop fake signups. Block throwaway addresses. Protect your platform.
 
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Authentication](#authentication)
-- [Methods](#methods)
-  - [check()](#check--free-tier)
-  - [detailed()](#detailed--pro-tier)
-  - [bulk()](#bulk--business-tier)
-- [Response Models](#response-models)
-- [Error Handling](#error-handling)
-- [Framework Integration](#framework-integration)
-- [Configuration](#configuration)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
+[![Latest Stable Version](https://img.shields.io/packagist/v/pyzit/tempmail?color=1D9E75&labelColor=0f0f0f&style=flat-square)](https://packagist.org/packages/pyzit/tempmail)
+[![PHP Version](https://img.shields.io/packagist/php-v/pyzit/tempmail?color=1D9E75&labelColor=0f0f0f&style=flat-square)](https://packagist.org/packages/pyzit/tempmail)
+[![License](https://img.shields.io/packagist/l/pyzit/tempmail?color=1D9E75&labelColor=0f0f0f&style=flat-square)](LICENSE)
+[![Type Safety](https://img.shields.io/badge/types-declared-1D9E75?labelColor=0f0f0f&style=flat-square)](src/)
+
+</div>
 
 ---
 
-## Requirements
+## ◈ What is this?
 
-| Requirement | Version  |
-|-------------|----------|
-| PHP         | ≥ 8.1    |
-| ext-curl    | any      |
-| ext-json    | any      |
+`pyzit/tempmail` is the official PHP client for the **Pyzit Disposable Email API** — a service that detects throwaway, temporary, and fake email addresses in real time.
 
-No other runtime dependencies.
+```
+User submits email          SDK validates it              Your app decides
+─────────────────           ─────────────────             ───────────────
+user@mailnator.com  ──────► is_disposable: True  ──────►  ✗  Reject signup
+hi@yourcompany.com  ──────► is_disposable: False ──────►  ✓  Allow signup
+```
+
+Works with **Laravel**, **Symfony**, **WordPress**, plain PHP scripts — simple Composer integration.
 
 ---
 
-## Installation
+## ◈ Table of contents
+
+- [Installation](#-installation)
+- [Quick start](#-quick-start)
+- [API tiers](#-api-tiers)
+- [All methods](#-all-methods)
+  - [check()](#checkresult--checkemail-string)
+  - [detailed()](#detailedresult--detailedemail-string)
+  - [bulk()](#bulkresult--bulkemails-array)
+- [Response models](#-response-models)
+- [Error handling](#-error-handling)
+- [Framework integrations](#-framework-integrations)
+- [Configuration](#-configuration)
+- [Development](#-development)
+
+---
+
+## ◈ Installation
 
 ```bash
 composer require pyzit/tempmail
 ```
 
+**Requirements:** PHP 8.1 or higher.
+
 ---
 
-## Quick Start
+## ◈ Quick start
 
 ```php
-<?php
-
-require 'vendor/autoload.php';
-
 use Pyzit\TempMail\TempMailClient;
 
 $client = new TempMailClient('YOUR_API_TOKEN');
 
 $result = $client->check('user@example.com');
 
-echo $result->email;        // "user@example.com"
-echo $result->isDisposable; // false
-echo $result->status;       // "clean"
-echo $result->isClean();    // true
+if ($result->isDisposable) {
+    echo '❌ Disposable email — rejected';
+} else {
+    echo '✅ Looks clean — allowed';
+}
 ```
 
-Get your API token from the [Pyzit dashboard](https://temp-mail-detector.pyzit.com).
+Get your API token at [temp-mail-detector.pyzit.com](https://temp-mail-detector.pyzit.com).
+
+> **Important:** API tokens now use the prefix `pyzit_live_...` (e.g., `pyzit_live_7b19e2f4a5c84d12903456789abcdef0`).
+
+> **Tip:** Store your token in an environment variable, never hard-code it.
+> ```php
+> $client = new TempMailClient($_ENV['PYZIT_TOKEN']);
+> ```
 
 ---
 
-## Authentication
+## ◈ API tiers & quota model
 
-Pass your API token as the first argument to `TempMailClient`:
+**New architecture:** Plans determine quota, not endpoint access. Every plan can use all endpoints.
 
-```php
-$client = new TempMailClient('YOUR_API_TOKEN');
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         QUOTA MODEL                                  │
+├──────────────────┬─────────────┬──────────────────────────────────┤
+│  Plan            │  Simple     │  Detailed                        │
+│                  │  Quota/mo   │  Quota/mo                        │
+├──────────────────┼─────────────┼──────────────────────────────────┤
+│  Free Developer  │  1,000      │  20                              │
+│  Pro             │  50,000     │  1,000                           │
+│  Scale           │  500,000    │  25,000                          │
+│  Enterprise      │  Custom     │  Custom                          │
+└──────────────────┴─────────────┴──────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                      BULK BATCH LIMITS                                │
+├──────────────────┬─────────────┬──────────────────────────────────┤
+│  Plan            │  Max Emails │  Notes                           │
+├──────────────────┼─────────────┼──────────────────────────────────┤
+│  Free Developer  │  10         │  Per request                     │
+│  Pro             │  50         │  Per request                     │
+│  Scale           │  100        │  Per request                     │
+│  Enterprise      │  500+       │  Custom configured               │
+└──────────────────┴─────────────┴──────────────────────────────────┘
 ```
 
-Keep your token secret. The recommended approach is to load it from an environment variable:
-
-```php
-$client = new TempMailClient($_ENV['PYZIT_TOKEN']);
-// or
-$client = new TempMailClient(getenv('PYZIT_TOKEN'));
-```
+**Important:** 
+- **Unlimited API keys** across all plans
+- **Token scopes** determine access: `tmd:basic` (check + bulk), `tmd:detailed` (detailed), `tmd:*` (all)
+- Any user on any plan can create tokens with any scope
 
 ---
 
-## Methods
+## ◈ All methods
 
-### check() — Free Tier
+### `CheckResult` ← `check(string $email)`
 
-Quick disposable check. Returns in milliseconds.
-
-```php
-$result = $client->check('user@example.com');
-```
-
-**Parameters**
-
-| Name    | Type     | Description               |
-|---------|----------|---------------------------|
-| `$email` | `string` | The email address to check |
-
-**Returns** [`CheckResult`](#checkresult)
+The fastest check. One email in, one decision out. Uses `simple_quota`.
 
 ```php
 $result = $client->check('user@mailnator.com');
 
-echo $result->email;         // "user@mailnator.com"
-echo $result->isDisposable;  // true
-echo $result->status;        // "disposable"
-echo $result->isClean();     // false  (convenience method)
+$result->email          // 'user@mailnator.com'
+$result->isDisposable   // true
+$result->status         // 'disposable'
+$result->isClean()      // false  (convenience method, opposite of isDisposable)
+```
+
+**Response shape:**
+
+```
+CheckResult
+├── email           string  — the email you submitted
+├── isDisposable    bool    — true = block it
+├── status          string  — 'clean' | 'disposable'
+└── isClean()       bool    — shorthand for not isDisposable
 ```
 
 ---
 
-### detailed() — Pro Tier
+### `DetailedResult` ← `detailed(string $email)`
 
-Full DNS, reputation, and signal analysis. Use this when you need to know *why* an email is suspicious — not just *that* it is.
-
-```php
-$result = $client->detailed('user@example.com');
-```
-
-**Parameters**
-
-| Name    | Type     | Description                   |
-|---------|----------|-------------------------------|
-| `$email` | `string` | The email address to analyse  |
-
-**Returns** [`DetailedResult`](#detailedresult)
+Full forensic analysis. DNS records, SMTP probing, reputation scoring,
+domain age, signal breakdown. Uses `detailed_quota`. Requires `tmd:detailed` scope.
 
 ```php
-$result = $client->detailed('user@example.com');
+$result = $client->detailed('suspicious@new-domain.io');
 
-echo $result->reputationScore;  // 0.0 – 1.0
-echo $result->riskLevel;        // "low" | "medium" | "high"
-echo $result->recommendation;   // "accept" | "review" | "reject"
-
-if ($result->shouldReject()) {
-    throw new \RuntimeException('Email rejected: ' . $result->riskLevel);
-}
+$result->riskLevel       // 'high'
+$result->recommendation   // 'reject'
+$result->reputationScore  // 0.0
+$result->shouldReject()   // true  (convenience method)
 
 // DNS intelligence
-$dns = $result->details->dnsIntelligence;
-echo $dns->hasMx;     // true/false
-echo $dns->hasSpf;    // true/false
-echo $dns->hasDmarc;  // true/false
+$result->details->dnsIntelligence->hasMx      // false
+$result->details->dnsIntelligence->hasSpf     // false
 
-foreach ($dns->mxRecords as $mx) {
-    echo $mx->priority;    // 5
-    echo $mx->exchange;    // "mail.example.com"
-    echo implode(', ', $mx->ips); // "1.2.3.4"
-}
-
-// Signals — what triggered the result
-$signals = $result->details->signals;
-print_r($signals->positive); // ["established_domain", "has_spf"]
-print_r($signals->negative); // ["no_mx_records", "new_domain"]
-print_r($signals->neutral);  // ["limited_history"]
+// Signal breakdown
+$result->details->signals->negative  // ['no_mx_records', 'new_domain', ...]
+$result->details->signals->positive  // []
 
 // Domain stability
-$stability = $result->details->stability;
-echo $stability->domainAgeDays;   // 0
-echo $stability->isNewDomain;     // true
-echo $stability->stabilityScore;  // 0.0 – 1.0
-print_r($stability->riskFactors); // ["newly_observed_domain"]
+$result->details->stability->domainAgeDays  // 0
+$result->details->stability->isNewDomain    // true
 ```
 
-> **Requires** the Pro plan. Throws [`PlanRequiredException`](#planrequiredexception) if your account does not have access.
+**Response shape:**
+
+```
+DetailedResult
+├── email              string
+├── domain             string
+├── isDisposable       bool
+├── status             string
+├── reputationScore    float   — 0.0 (worst) to 1.0 (best)
+├── riskLevel          string  — 'low' | 'medium' | 'high'
+├── recommendation     string  — 'accept' | 'challenge' | 'reject'
+├── shouldReject()     bool    — shorthand: recommendation == 'reject'
+├── shouldChallenge()  bool    — shorthand: recommendation == 'challenge'
+├── shouldAccept()     bool    — shorthand: recommendation == 'accept'
+├── isHighRisk()       bool    — shorthand: riskLevel == 'high'
+├── isTrustedDomain()  bool    — shorthand: isTrusted
+└── details
+    ├── reputation
+    │   ├── reputationScore      float
+    │   ├── isDisposable         bool
+    │   ├── disposableConfidence float
+    │   ├── riskLevel            string
+    │   └── recommendation        string
+    ├── signals
+    │   ├── positive   array    — trust signals
+    │   ├── negative   array    — risk signals
+    │   └── neutral    array    — ambiguous signals
+    ├── dnsIntelligence
+    │   ├── hasMx       bool
+    │   ├── mxRecords   array of MxRecord
+    │   ├── hasARecord  bool
+    │   ├── hasSpf      bool
+    │   ├── hasDmarc    bool
+    │   └── error       string|null
+    └── stability
+        ├── stabilityScore   float
+        ├── domainAgeDays   int
+        ├── isNewDomain     bool
+        └── riskFactors     array
+```
 
 ---
 
-### bulk() — Business Tier
+### `BulkResult` ← `bulk(array $emails)`
 
-Validate up to 100 emails in a single API call. Far more efficient than looping `check()`.
-
-```php
-$result = $client->bulk(['a@example.com', 'b@mailnator.com', 'c@github.com']);
-```
-
-**Parameters**
-
-| Name      | Type       | Description                           |
-|-----------|------------|---------------------------------------|
-| `$emails` | `string[]` | Array of email addresses (max 100)    |
-
-**Returns** [`BulkResult`](#bulkresult)
+Validate multiple emails in a single API call. Uses `simple_quota`. Batch size depends on your plan (Free=10, Pro=50, Scale=100).
 
 ```php
 $result = $client->bulk([
     'hi@pyzit.com',
+    'cyz@temp-mail.org',
     'user@mailnator.com',
-    'support@github.com',
-    'fake@temp-mail.org',
 ]);
 
-echo $result->processed; // 4
+$result->processed          // 3
+$result->results            // ['hi@pyzit.com' => false, 'cyz@temp-mail.org' => true, ...]
 
-// Full map: email → is_disposable
-var_dump($result->results);
-// [
-//   "hi@pyzit.com"       => false,
-//   "user@mailnator.com" => true,
-//   "support@github.com" => false,
-//   "fake@temp-mail.org" => true,
-// ]
-
-// Convenience helpers
-$blocked = $result->disposableEmails(); // ["user@mailnator.com", "fake@temp-mail.org"]
-$allowed = $result->cleanEmails();      // ["hi@pyzit.com", "support@github.com"]
+$result->disposableEmails() // ['cyz@temp-mail.org', 'user@mailnator.com']
+$result->cleanEmails()      // ['hi@pyzit.com']
 ```
 
-> **Requires** the Business plan. Throws [`PlanRequiredException`](#planrequiredexception) if your account does not have access.
+**Response shape:**
+
+```
+BulkResult
+├── processed          int              — number of emails processed
+├── status             string           — 'clean' | 'disposable' | 'mixed'
+├── disposableCount    int              — number of disposable emails
+├── flaggedDomains     array            — unique disposable domains
+├── results            array            — ['email' => isDisposable]
+├── disposableEmails() array            — emails where isDisposable=true
+├── cleanEmails()      array            — emails where isDisposable=false
+├── isAllClean()       bool             — all emails are clean
+├── isAllDisposable()  bool             — all emails are disposable
+└── isMixed()          bool             — mixed clean/disposable
+```
 
 ---
 
-## Response Models
+## ◈ Response models
 
-All models are immutable value objects with `readonly` properties. There is no JSON decoding to do — the SDK handles it.
+All responses are fully typed with PHP 8.1+ type declarations.
+You get autocomplete, IDE support, and type safety.
 
-### CheckResult
-
-Returned by `check()`.
-
-| Property       | Type     | Description                              |
-|----------------|----------|------------------------------------------|
-| `$email`       | `string` | The email address that was validated     |
-| `$isDisposable`| `bool`   | `true` if the email is disposable        |
-| `$status`      | `string` | `"clean"` or `"disposable"`             |
-
-**Methods**
-
-| Method       | Returns | Description                          |
-|--------------|---------|--------------------------------------|
-| `isClean()`  | `bool`  | Convenience: `!$this->isDisposable`  |
-
----
-
-### DetailedResult
-
-Returned by `detailed()`.
-
-| Property          | Type              | Description                              |
-|-------------------|-------------------|------------------------------------------|
-| `$email`          | `string`          | The email address                        |
-| `$domain`         | `string`          | The domain portion                       |
-| `$isDisposable`   | `bool`            | Whether the email is disposable          |
-| `$status`         | `string`          | `"clean"` or `"disposable"`             |
-| `$reputationScore`| `float`           | `0.0` (bad) to `1.0` (trusted)          |
-| `$riskLevel`      | `string`          | `"low"`, `"medium"`, or `"high"`        |
-| `$recommendation` | `string`          | `"accept"`, `"review"`, or `"reject"`   |
-| `$details`        | `DetailedDetails` | Nested analysis object                   |
-
-**Methods**
-
-| Method          | Returns | Description                               |
-|-----------------|---------|-------------------------------------------|
-| `shouldReject()`| `bool`  | `true` when `recommendation === "reject"` |
-
-#### DetailedDetails
-
-Accessible via `$result->details`.
-
-| Property          | Type               | Description                   |
-|-------------------|--------------------|-------------------------------|
-| `$reputation`     | `ReputationDetail` | Reputation scoring            |
-| `$signals`        | `Signals`          | Positive / negative signals   |
-| `$dnsIntelligence`| `DnsIntelligence`  | DNS record analysis           |
-| `$stability`      | `StabilityInfo`    | Domain age and stability      |
-
-#### DnsIntelligence
-
-| Property     | Type        | Description                         |
-|--------------|-------------|-------------------------------------|
-| `$hasMx`     | `bool`      | Domain has MX records               |
-| `$mxRecords` | `MxRecord[]`| Array of MX record objects          |
-| `$hasARecord`| `bool`      | Domain has an A record              |
-| `$hasSpf`    | `bool`      | Domain has an SPF record            |
-| `$hasDmarc`  | `bool`      | Domain has a DMARC record           |
-| `$error`     | `?string`   | DNS lookup error message, or `null` |
-
-#### MxRecord
-
-| Property    | Type       | Description                           |
-|-------------|------------|---------------------------------------|
-| `$priority` | `int`      | MX priority (lower = higher priority) |
-| `$exchange` | `string`   | Mail exchange hostname                |
-| `$ips`      | `string[]` | Resolved IP addresses for this host   |
-
-#### Signals
-
-| Property    | Type       | Description                        |
-|-------------|------------|------------------------------------|
-| `$positive` | `string[]` | Signals that lower risk            |
-| `$negative` | `string[]` | Signals that increase risk         |
-| `$neutral`  | `string[]` | Informational signals              |
-
-#### ReputationDetail
-
-| Property               | Type     | Description                        |
-|------------------------|----------|------------------------------------|
-| `$reputationScore`     | `float`  | 0.0 – 1.0 reputation score        |
-| `$isDisposable`        | `bool`   | Whether classified as disposable   |
-| `$disposableConfidence`| `float`  | Confidence in the classification   |
-| `$riskLevel`           | `string` | `"low"`, `"medium"`, or `"high"`  |
-| `$recommendation`      | `string` | `"accept"`, `"review"`, `"reject"`|
-
-#### StabilityInfo
-
-| Property          | Type       | Description                         |
-|-------------------|------------|-------------------------------------|
-| `$stabilityScore` | `float`    | 0.0 – 1.0 domain stability score   |
-| `$domainAgeDays`  | `int`      | Age of the domain in days           |
-| `$isNewDomain`    | `bool`     | `true` if the domain is newly seen  |
-| `$riskFactors`    | `string[]` | Risk factor identifiers             |
+```
+Pyzit\TempMail\Models\
+│
+├── CheckResult          ← client->check()
+├── DetailedResult       ← client->detailed()
+│   └── DetailedDetails
+│       ├── ReputationDetail
+│       ├── Signals
+│       ├── DnsIntelligence
+│       │   └── MxRecord
+│       └── StabilityInfo
+└── BulkResult           ← client->bulk()
+```
 
 ---
 
-### BulkResult
+## ◈ Error handling
 
-Returned by `bulk()`.
+All SDK errors inherit from `PyzitException`, so you can catch everything
+at one level or be specific.
 
-| Property     | Type                  | Description                          |
-|--------------|-----------------------|--------------------------------------|
-| `$results`   | `array<string, bool>` | Map of email address → is_disposable |
-| `$processed` | `int`                 | Number of emails processed           |
+```
+PyzitException                    ← catch-all for any SDK error
+├── AuthenticationException       ← HTTP 401 — bad or missing token
+├── InsufficientScopeError        ← HTTP 403 — token lacks required scope
+│   └── getRequiredScope()       ← string, e.g. 'tmd:basic' or 'tmd:detailed'
+├── QuotaExceededError            ← HTTP 402 — monthly quota exhausted
+│   └── getQuotaType()            ← string, 'simple' or 'detailed'
+├── BatchLimitExceededError       ← HTTP 400 — bulk request exceeds plan limit
+│   ├── getMaxAllowed()           ← int, plan's batch size limit
+│   └── getAttempted()            ← int, emails attempted
+├── ValidationError               ← HTTP 400 — malformed email or request
+│   └── getFieldErrors()         ← array, field-specific errors
+├── RateLimitException            ← HTTP 429 — rate limit exceeded
+│   └── getRetryAfter()           ← int, seconds to wait
+├── ApiException                  ← HTTP 5xx or unexpected status
+│   ├── getStatusCode()           ← int
+│   └── getResponseBody()         ← string, raw body for debugging
+└── TimeoutException              ← request took too long
+```
 
-**Methods**
-
-| Method               | Returns    | Description                          |
-|----------------------|------------|--------------------------------------|
-| `disposableEmails()` | `string[]` | Only the disposable email addresses  |
-| `cleanEmails()`      | `string[]` | Only the clean email addresses       |
-
----
-
-## Error Handling
-
-All exceptions extend `PyzitException`, so you can catch everything in one block or handle specific cases:
+**Recommended pattern — catch specific errors:**
 
 ```php
-use Pyzit\TempMail\Exceptions\PyzitException;
-use Pyzit\TempMail\Exceptions\AuthenticationException;
-use Pyzit\TempMail\Exceptions\ScopeException;
-use Pyzit\TempMail\Exceptions\PlanRequiredException;
-use Pyzit\TempMail\Exceptions\RateLimitException;
-use Pyzit\TempMail\Exceptions\ApiException;
-use Pyzit\TempMail\Exceptions\TimeoutException;
+use Pyzit\TempMail\TempMailClient;
+use Pyzit\TempMail\Exceptions\{
+    AuthenticationException,
+    InsufficientScopeError,
+    QuotaExceededError,
+    BatchLimitExceededError,
+    RateLimitException,
+    ApiException,
+    TimeoutException,
+    PyzitException
+};
+
+$client = new TempMailClient('YOUR_TOKEN');
 
 try {
     $result = $client->check('user@example.com');
+
 } catch (AuthenticationException $e) {
-    // HTTP 401 — invalid or missing API token
-    // Fix: check your token in the Pyzit dashboard
-    log_error($e->getMessage());
+    // token is wrong — fail fast, don't retry
+    die('Check your PYZIT_TOKEN environment variable.');
 
-} catch (ScopeException $e) {
-    // HTTP 403 — token is missing a required scope
-    // Fix: enable the scope in your Pyzit dashboard → API Tokens
-    log_error('Missing scope: ' . $e->getRequiredScope());
+} catch (InsufficientScopeError $e) {
+    // token lacks required scope
+    echo "Your API token lacks the '{$e->getRequiredScope()}' scope.";
 
-} catch (PlanRequiredException $e) {
-    // HTTP 402/403 — endpoint requires a higher plan
-    // Fix: upgrade your Pyzit subscription
-    log_error('Need plan: ' . $e->getRequiredPlan());
+} catch (QuotaExceededError $e) {
+    // monthly quota exhausted
+    echo "You've exceeded your monthly {$e->getQuotaType()} quota. Upgrade your plan.";
+
+} catch (BatchLimitExceededError $e) {
+    // bulk request exceeds plan limit
+    echo "Your plan allows max {$e->getMaxAllowed()} emails per bulk request.";
 
 } catch (RateLimitException $e) {
-    // HTTP 429 — too many requests
-    // Fix: back off and retry after $e->getRetryAfter() seconds
+    // back off and retry
     sleep($e->getRetryAfter());
-    $result = $client->check('user@example.com'); // retry
+    $result = $client->check('user@example.com');
 
 } catch (TimeoutException $e) {
-    // cURL timeout exceeded
-    // Fix: increase timeout or implement retry logic
-    log_error('Request timed out');
+    // API too slow — decide how to handle in your app
+    echo 'Pyzit API timed out — allowing email through.';
 
 } catch (ApiException $e) {
-    // Unexpected HTTP error (5xx, unknown 4xx)
-    log_error('API error ' . $e->getStatusCode() . ': ' . $e->getResponseBody());
+    // unexpected server error
+    echo "Unexpected error {$e->getStatusCode()}: {$e->getResponseBody()}";
 
 } catch (PyzitException $e) {
-    // Catch-all for any other SDK error
-    log_error($e->getMessage());
+    // fallback for any other SDK error
+    echo 'Something went wrong with the Pyzit SDK.';
 }
 ```
 
-### Exception Reference
-
-| Exception                  | HTTP Status    | Attribute                           |
-|----------------------------|----------------|-------------------------------------|
-| `AuthenticationException`  | 401            | —                                   |
-| `ScopeException`           | 403 (scope)    | `getRequiredScope(): string`        |
-| `PlanRequiredException`    | 402 / 403      | `getRequiredPlan(): string`         |
-| `RateLimitException`       | 429            | `getRetryAfter(): int` (seconds)    |
-| `ApiException`             | 5xx / other    | `getStatusCode(): int`, `getResponseBody(): string` |
-| `TimeoutException`         | —              | —                                   |
-
-All of the above extend `PyzitException` which extends `\RuntimeException`.
-
-### Fail-Open Pattern
-
-Never block a legitimate user because your email validation API is temporarily down.
-Always **fail open** on SDK errors:
+**Minimal pattern — just block disposables, ignore errors gracefully:**
 
 ```php
-function isEmailAllowed(TempMailClient $client, string $email): bool
-{
+function isAllowed(string $email): bool {
     try {
-        $result = $client->check($email);
-        return !$result->isDisposable;
-    } catch (PyzitException) {
-        // API error — let the request through rather than blocking real users
-        return true;
+        return !$client->check($email)->isDisposable;
+    } catch (PyzitException $e) {
+        return true; // fail open — let the email through if API is down
     }
 }
 ```
 
 ---
 
-## Framework Integration
+## ◈ Framework integrations
 
 ### Laravel
 
-**Service Provider binding:**
-
 ```php
-// AppServiceProvider::register()
-$this->app->singleton(TempMailClient::class, fn() =>
-    new TempMailClient(config('services.pyzit.token'))
-);
-```
+// app/Services/EmailValidator.php
+namespace App\Services;
 
-**Middleware:**
-
-```php
-<?php
-// app/Http/Middleware/BlockDisposableEmails.php
-
-namespace App\Http\Middleware;
-
-use Closure;
-use Illuminate\Http\Request;
 use Pyzit\TempMail\TempMailClient;
 use Pyzit\TempMail\Exceptions\PyzitException;
 
-class BlockDisposableEmails
+class EmailValidator
 {
-    public function __construct(private TempMailClient $client) {}
+    private TempMailClient $client;
 
-    public function handle(Request $request, Closure $next): mixed
+    public function __construct()
     {
-        $email = $request->input('email');
-
-        if ($email) {
-            try {
-                $r = $this->client->check($email);
-                if ($r->isDisposable) {
-                    return response()->json(
-                        ['message' => 'Disposable email addresses are not allowed.'],
-                        422
-                    );
-                }
-            } catch (PyzitException) {
-                // Fail open — API issues should never block real users
-            }
-        }
-
-        return $next($request);
+        $this->client = new TempMailClient(env('PYZIT_TOKEN'));
     }
-}
-```
 
-**Form Request validation rule:**
-
-```php
-<?php
-// app/Rules/NotDisposableEmail.php
-
-namespace App\Rules;
-
-use Closure;
-use Illuminate\Contracts\Validation\ValidationRule;
-use Pyzit\TempMail\TempMailClient;
-use Pyzit\TempMail\Exceptions\PyzitException;
-
-class NotDisposableEmail implements ValidationRule
-{
-    public function __construct(private TempMailClient $client) {}
-
-    public function validate(string $attribute, mixed $value, Closure $fail): void
+    public function validate(string $email): bool
     {
         try {
-            $r = $this->client->check((string) $value);
-            if ($r->isDisposable) {
-                $fail('Disposable email addresses are not allowed.');
-            }
-        } catch (PyzitException) {
-            // Fail open
+            $result = $this->client->check($email);
+            return !$result->isDisposable;
+        } catch (PyzitException $e) {
+            return true; // fail open
         }
     }
 }
 
-// Usage in a form request:
-// 'email' => ['required', 'email', new NotDisposableEmail(app(TempMailClient::class))],
+// app/Http/Controllers/AuthController.php
+public function register(Request $request, EmailValidator $validator)
+{
+    if (!$validator->validate($request->email)) {
+        return response()->json([
+            'error' => 'Disposable email addresses are not allowed.'
+        ], 422);
+    }
+    
+    // continue with registration...
+}
 ```
 
 ---
 
 ### Symfony
 
-**Service configuration (`config/services.yaml`):**
-
-```yaml
-services:
-    Pyzit\TempMail\TempMailClient:
-        arguments:
-            $apiToken: '%env(PYZIT_TOKEN)%'
-            $timeout: 10
-```
-
-**Validator Constraint:**
-
 ```php
-<?php
-// src/Validator/NotDisposableEmailValidator.php
-
+// src/Validator/NotDisposableEmail.php
 namespace App\Validator;
 
-use Pyzit\TempMail\TempMailClient;
-use Pyzit\TempMail\Exceptions\PyzitException;
 use Symfony\Component\Validator\Constraint;
 use Symfony\Component\Validator\ConstraintValidator;
+use Pyzit\TempMail\TempMailClient;
+use Pyzit\TempMail\Exceptions\PyzitException;
 
 class NotDisposableEmailValidator extends ConstraintValidator
 {
-    public function __construct(private TempMailClient $client) {}
+    private TempMailClient $client;
 
-    public function validate(mixed $value, Constraint $constraint): void
+    public function __construct()
     {
-        if (null === $value || '' === $value) {
-            return;
-        }
+        $this->client = new TempMailClient($_ENV['PYZIT_TOKEN']);
+    }
 
+    public function validate($value, Constraint $constraint): void
+    {
         try {
-            $r = $this->client->check((string) $value);
-            if ($r->isDisposable) {
-                $this->context
-                    ->buildViolation($constraint->message)
+            $result = $this->client->check((string)$value);
+            if ($result->isDisposable) {
+                $this->context->buildViolation('Disposable emails are not allowed.')
                     ->addViolation();
             }
-        } catch (PyzitException) {
-            // Fail open — do not block submissions when the API is unavailable
+        } catch (PyzitException $e) {
+            // fail open if API is unreachable
         }
     }
+}
+
+// src/Validator/NotDisposableEmail.php (constraint class)
+namespace App\Validator;
+
+use Symfony\Component\Validator\Constraint;
+
+#[\Attribute]
+class NotDisposableEmail extends Constraint
+{
+    public string $message = 'Disposable email addresses are not allowed.';
 }
 ```
 
 ---
 
-### Plain PHP
+### WordPress
 
 ```php
-<?php
-
-require 'vendor/autoload.php';
+// functions.php
+require_once __DIR__ . '/vendor/autoload.php';
 
 use Pyzit\TempMail\TempMailClient;
 use Pyzit\TempMail\Exceptions\PyzitException;
 
-$client = new TempMailClient($_ENV['PYZIT_TOKEN']);
-
-$email = $_POST['email'] ?? '';
-
-try {
-    $r = $client->check($email);
-    if ($r->isDisposable) {
-        http_response_code(422);
-        echo json_encode(['error' => 'Disposable email addresses are not allowed.']);
-        exit;
+function validate_disposable_email($email) {
+    $client = new TempMailClient(getenv('PYZIT_TOKEN'));
+    
+    try {
+        $result = $client->check($email);
+        return !$result->isDisposable;
+    } catch (PyzitException $e) {
+        return true; // fail open
     }
-} catch (PyzitException $e) {
-    // Fail open
 }
 
-// Continue processing the valid email...
+add_filter('registration_errors', function($errors, $sanitized_user_login, $user_email) {
+    if (!validate_disposable_email($user_email)) {
+        $errors->add('disposable_email', 'Disposable email addresses are not allowed.');
+    }
+    return $errors;
+}, 10, 3);
 ```
 
 ---
 
-## Configuration
+## ◈ Configuration
+
+`TempMailClient` accepts the following options:
 
 ```php
 $client = new TempMailClient(
-    apiToken: $_ENV['PYZIT_TOKEN'],
-    timeout:  15,                              // seconds, default: 10
-    baseUrl:  'https://api-tempmail.pyzit.com/v1', // default, override for testing
+    apiKey: 'YOUR_TOKEN',          // required
+    baseUrl: 'https://api.pyzit.com',  // override for testing
+    timeout: 5,                     // seconds, default 5
+    maxRetries: 2,                  // retry attempts for 429/5xx, default 2
+    failOpen: false,                // return clean on network errors, default false
 );
 ```
 
-| Parameter  | Type     | Default                                    | Description                  |
-|------------|----------|--------------------------------------------|------------------------------|
-| `$apiToken`| `string` | —                                          | Your Pyzit API token         |
-| `$timeout` | `int`    | `10`                                       | cURL timeout in seconds      |
-| `$baseUrl` | `string` | `https://api-tempmail.pyzit.com/v1`        | API base URL                 |
+| Parameter   | Type    | Default                                      | Description                        |
+|-------------|---------|----------------------------------------------|------------------------------------|
+| `apiKey`    | `string`| —                                            | Your Pyzit API token (required)    |
+| `baseUrl`   | `string`| `https://api.pyzit.com`                      | Override for local testing / mocks |
+| `timeout`   | `int`   | `5`                                          | Request timeout in seconds         |
+| `maxRetries`| `int`   | `2`                                          | Retry attempts for 429/5xx errors  |
+| `failOpen`  | `bool`  | `false`                                      | Return clean result on network errors|
 
 ---
 
-## Testing
+## ◈ Development
 
-### Running the test suite
+This project uses standard PHP tooling.
 
 ```bash
+# clone
+git clone https://github.com/pyzit-org/temp-mail-detector-sdk-php.git
+cd temp-mail-detector-sdk-php
+
+# install dependencies
 composer install
-composer test
+
+# run tests (no real API calls — all HTTP is mocked)
+vendor/bin/phpunit
+
+# tests with Docker (recommended for local development)
+docker compose up
+docker compose run --rm sdk vendor/bin/phpunit
+
+# code style check
+vendor/bin/phpcs --standard=PSR12 src/
 ```
 
-Output:
-
-```
-PHPUnit 11.x
-
-Exceptions       ✔ 31 tests
-HttpClientError  ✔ 16 tests
-Models           ✔ 17 tests
-TempMailClient   ✔ 17 tests
-
-OK (81 tests, 167 assertions)
-```
-
-### Testing your own code
-
-The SDK is designed to be testable. In your own tests, inject a fake or mock `TempMailClient` rather than making real API calls.
-
-**Using a hand-rolled fake:**
-
-```php
-<?php
-
-use PHPUnit\Framework\TestCase;
-use Pyzit\TempMail\TempMailClient;
-use Pyzit\TempMail\Models\CheckResult;
-
-class FakeTempMailClient extends TempMailClient
-{
-    public function __construct(private bool $disposable = false)
-    {
-        // Skip parent constructor — no real HTTP
-    }
-
-    public function check(string $email): CheckResult
-    {
-        return new CheckResult(
-            email:        $email,
-            isDisposable: $this->disposable,
-            status:       $this->disposable ? 'disposable' : 'clean',
-        );
-    }
-}
-
-class RegistrationServiceTest extends TestCase
-{
-    public function testDisposableEmailIsRejected(): void
-    {
-        $service = new RegistrationService(new FakeTempMailClient(disposable: true));
-        $this->expectException(\RuntimeException::class);
-        $service->register('user@example.com');
-    }
-
-    public function testCleanEmailIsAccepted(): void
-    {
-        $service = new RegistrationService(new FakeTempMailClient(disposable: false));
-        $this->assertNull($service->register('user@example.com'));
-    }
-}
-```
-
-**Using PHPUnit mocks:**
-
-```php
-$mock = $this->createMock(TempMailClient::class);
-$mock->method('check')->willReturn(
-    new CheckResult('user@mailnator.com', true, 'disposable')
-);
-```
-
----
-
-## Project Structure
+**Project layout:**
 
 ```
 src/
-├── TempMailClient.php         Main client — check(), detailed(), bulk()
-├── HttpClient.php             Internal cURL layer — not part of public API
 ├── Exceptions/
-│   ├── PyzitException.php     Base — catch all SDK errors with this
+│   ├── PyzitException.php         ← base exception class
 │   ├── AuthenticationException.php
-│   ├── ScopeException.php
-│   ├── PlanRequiredException.php
+│   ├── InsufficientScopeError.php
+│   ├── QuotaExceededError.php
+│   ├── BatchLimitExceededError.php
+│   ├── ValidationError.php
 │   ├── RateLimitException.php
 │   ├── ApiException.php
-│   └── TimeoutException.php
-└── Models/
-    ├── CheckResult.php
-    ├── DetailedResult.php
-    ├── BulkResult.php
-    ├── DetailedDetails.php
-    ├── DnsIntelligence.php
-    ├── MxRecord.php
-    ├── Signals.php
-    ├── ReputationDetail.php
-    └── StabilityInfo.php
+│   ├── TimeoutException.php
+│   ├── ScopeException.php
+│   └── PlanRequiredException.php
+├── Models/
+│   ├── CheckResult.php
+│   ├── DetailedResult.php
+│   ├── DetailedDetails.php
+│   ├── ReputationDetail.php
+│   ├── Signals.php
+│   ├── DnsIntelligence.php
+│   ├── MxRecord.php
+│   ├── StabilityInfo.php
+│   └── BulkResult.php
+├── HttpClient.php                 ← internal HTTP layer
+└── TempMailClient.php             ← public API surface
 
 tests/
-├── Fixtures.php               Shared test data
 ├── ExceptionsTest.php
-├── ModelsTest.php
 ├── HttpClientErrorTest.php
-└── TempMailClientTest.php
+├── ModelsTest.php
+├── TempMailClientTest.php
+└── Fixtures.php                   ← shared test data
 ```
 
 ---
 
-## API Reference
+## ◈ Changelog
 
-Full API documentation: [https://temp-mail-detector.pyzit.com/docs](https://temp-mail-detector.pyzit.com/docs)
-
-| Endpoint                   | Method | Plan       | SDK method    |
-|----------------------------|--------|------------|---------------|
-| `/v1/validate/check/`      | POST   | Free       | `check()`     |
-| `/v1/validate/detailed/`   | POST   | Pro        | `detailed()`  |
-| `/v1/validate/bulk/`       | POST   | Business   | `bulk()`      |
+See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## License
+## ◈ License
 
-MIT — see [LICENSE](LICENSE) for details.
-
----
-
-## Support
-
-- **Documentation:** [https://temp-mail-detector.pyzit.com/docs](https://temp-mail-detector.pyzit.com/docs)
-- **Email:** [hi@pyzit.com](mailto:hi@pyzit.com)
-- **Issues:** [GitHub Issues](https://github.com/pyzit-org/temp-mail-detector-sdk-php/issues)
+[MIT](LICENSE) © [Pyzit](https://pyzit.com)
 
 ---
 
-## Docker (Recommended)
+<div align="center">
 
-Docker is the recommended way to work with this SDK. It pins PHP and Composer to exact versions, so the project runs identically on any machine — your laptop, a new PC, a CI server, or a teammate's computer. No PHP or Composer installation is needed on the host.
-
-### Prerequisites
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows / Mac) or Docker Engine (Linux)
-- PowerShell (Windows comes with it preinstalled)
-
-### First-time setup
-
-```powershell
-git clone https://github.com/pyzit-org/temp-mail-detector-sdk-php.git
-cd pyzit-tempmail-php
-
-cp .env.example .env
-# edit .env and add your PYZIT_TOKEN
-
-.\dev.ps1 install
+```
+Built with care by the Pyzit team · https://pyzit.com
 ```
 
-### Daily workflow
-
-```powershell
-.\dev.ps1 test        # run the full test suite
-.\dev.ps1 shell       # open bash inside the container
-.\dev.ps1 example     # run example_usage.php against the real API
-```
-
-### All available commands
-
-| Command                                      | What it does                                  |
-|---------------------------------------------|-----------------------------------------------|
-| `.\dev.ps1 install`                         | Build image + install Composer dependencies   |
-| `.\dev.ps1 test`                            | Run all PHPUnit tests                         |
-| `.\dev.ps1 test-filter -Filter FooTest`     | Run only tests matching `FooTest`             |
-| `.\dev.ps1 shell`                           | Open interactive bash shell inside container  |
-| `.\dev.ps1 example`                         | Run `example_usage.php`                       |
-| `.\dev.ps1 build`                           | Rebuild the Docker image                      |
-| `.\dev.ps1 clean`                           | Remove containers, volumes, and image         |
-| `.\dev.ps1 help`                            | Show all available commands                   |
-
-### Running Docker commands manually
-
-If you prefer raw Docker commands instead of `dev.ps1`:
-
-```bash
-# install dependencies
-docker compose run --rm sdk "composer install"
-
-# run tests
-docker compose run --rm sdk "vendor/bin/phpunit --testdox"
-
-# open a shell
-docker compose run --rm --entrypoint bash sdk
-
-# run a specific test file
-docker compose run --rm sdk "vendor/bin/phpunit --testdox tests/ExceptionsTest.php"
-```
-
-### Moving to a new machine
-
-```powershell
-# clone the repo
-git clone https://github.com/pyzit-org/temp-mail-detector-sdk-php.git
-cd pyzit-tempmail-php
-
-# configure environment
-cp .env.example .env
-# add your PYZIT_TOKEN to .env
-
-# install everything
-.\dev.ps1 install
-
-# verify setup
-.\dev.ps1 test
-```
-
-The Docker image pins **PHP 8.3** and **Composer 2.7**. To upgrade PHP, change the `FROM` line in the `Dockerfile`.
+</div>
