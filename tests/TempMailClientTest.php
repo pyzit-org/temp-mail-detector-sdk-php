@@ -11,8 +11,9 @@ use Pyzit\TempMail\Models\CheckResult;
 use Pyzit\TempMail\Models\DetailedResult;
 use Pyzit\TempMail\Models\BulkResult;
 use Pyzit\TempMail\Exceptions\AuthenticationException;
-use Pyzit\TempMail\Exceptions\ScopeException;
-use Pyzit\TempMail\Exceptions\PlanRequiredException;
+use Pyzit\TempMail\Exceptions\InsufficientScopeError;
+use Pyzit\TempMail\Exceptions\QuotaExceededError;
+use Pyzit\TempMail\Exceptions\BatchLimitExceededError;
 use Pyzit\TempMail\Exceptions\RateLimitException;
 use Pyzit\TempMail\Exceptions\ApiException;
 use Pyzit\TempMail\Exceptions\TimeoutException;
@@ -62,7 +63,7 @@ class TempMailClientTest extends TestCase
         $ref->setValue($client, $stub);
 
         $client->check('hi@pyzit.com');
-        $this->assertSame('/validate/check/', $stub->lastPath);
+        $this->assertSame('/v1/tmd/check/', $stub->lastPath);
         $this->assertSame(['email' => 'hi@pyzit.com'], $stub->lastBody);
     }
 
@@ -76,8 +77,7 @@ class TempMailClientTest extends TestCase
         $this->assertSame('x@new-domain.io', $r->email);
         $this->assertTrue($r->isDisposable);
         $this->assertSame('high', $r->riskLevel);
-        $this->assertSame('reject', $r->recommendation);
-        $this->assertTrue($r->shouldReject());
+        $this->assertTrue($r->isHighRisk());
     }
 
     public function testDetailedCallsCorrectPath(): void
@@ -88,19 +88,16 @@ class TempMailClientTest extends TestCase
         $ref->setValue($client, $stub);
 
         $client->detailed('x@new-domain.io');
-        $this->assertSame('/validate/detailed/', $stub->lastPath);
+        $this->assertSame('/v1/tmd/detailed/', $stub->lastPath);
         $this->assertSame(['email' => 'x@new-domain.io'], $stub->lastBody);
     }
 
-    public function testDetailedMxRecordsAsObjects(): void
+    public function testDetailedMxRecords(): void
     {
         $client = $this->makeClient([Fixtures::detailedWithMxPayload()]);
         $r      = $client->detailed('hi@pyzit.com');
-        $dns    = $r->details->dnsIntelligence;
-        $this->assertTrue($dns->hasMx);
-        $this->assertCount(2, $dns->mxRecords);
-        $this->assertSame(5,  $dns->mxRecords[0]->priority);
-        $this->assertSame(10, $dns->mxRecords[1]->priority);
+        $this->assertTrue($r->details->dnsIntelligence->hasMx);
+        $this->assertSame('mail1.pyzit.com', $r->details->dnsIntelligence->mxRecords[0]->exchange);
     }
 
     // ── bulk() ────────────────────────────────────────────────────
@@ -111,8 +108,9 @@ class TempMailClientTest extends TestCase
         $r = $client->bulk(['hi@pyzit.com', 'x@mailnator.com']);
         $this->assertInstanceOf(BulkResult::class, $r);
         $this->assertSame(4, $r->processed);
-        $this->assertFalse($r->results['hi@pyzit.com']);
-        $this->assertTrue($r->results['x@mailnator.com']);
+        $this->assertSame('mixed', $r->status);
+        $this->assertSame(2, $r->disposableCount);
+        $this->assertContains('mailnator.com', $r->flaggedDomains);
     }
 
     public function testBulkCallsCorrectPath(): void
@@ -125,7 +123,7 @@ class TempMailClientTest extends TestCase
 
         $emails = ['hi@pyzit.com', 'x@mailnator.com'];
         $client->bulk($emails);
-        $this->assertSame('/validate/bulk/', $stub->lastPath);
+        $this->assertSame('/v1/tmd/bulk/', $stub->lastPath);
         $this->assertSame(['emails' => $emails], $stub->lastBody);
     }
 
@@ -152,10 +150,10 @@ class TempMailClientTest extends TestCase
         $client->check('x@y.com');
     }
 
-    public function testCheckPropagatesScopeException(): void
+    public function testCheckPropagatesInsufficientScopeError(): void
     {
-        $this->expectException(ScopeException::class);
-        $stub   = new StubHttpClient([], new ScopeException('check:x'));
+        $this->expectException(InsufficientScopeError::class);
+        $stub   = new StubHttpClient([], new InsufficientScopeError('tmd:basic'));
         $client = new TempMailClient(Fixtures::FAKE_TOKEN);
         $ref = new \ReflectionProperty(TempMailClient::class, 'http');
         $ref->setAccessible(true);
@@ -163,10 +161,10 @@ class TempMailClientTest extends TestCase
         $client->check('x@y.com');
     }
 
-    public function testDetailedPropagatesPlanRequiredException(): void
+    public function testDetailedPropagatesQuotaExceededError(): void
     {
-        $this->expectException(PlanRequiredException::class);
-        $stub   = new StubHttpClient([], new PlanRequiredException('pro'));
+        $this->expectException(QuotaExceededError::class);
+        $stub   = new StubHttpClient([], new QuotaExceededError('detailed'));
         $client = new TempMailClient(Fixtures::FAKE_TOKEN);
         $ref = new \ReflectionProperty(TempMailClient::class, 'http');
         $ref->setAccessible(true);
@@ -174,10 +172,10 @@ class TempMailClientTest extends TestCase
         $client->detailed('x@y.com');
     }
 
-    public function testBulkPropagatesPlanRequiredException(): void
+    public function testBulkPropagatesBatchLimitExceededError(): void
     {
-        $this->expectException(PlanRequiredException::class);
-        $stub   = new StubHttpClient([], new PlanRequiredException('business'));
+        $this->expectException(BatchLimitExceededError::class);
+        $stub   = new StubHttpClient([], new BatchLimitExceededError(10, 15));
         $client = new TempMailClient(Fixtures::FAKE_TOKEN);
         $ref = new \ReflectionProperty(TempMailClient::class, 'http');
         $ref->setAccessible(true);
@@ -222,8 +220,9 @@ class TempMailClientTest extends TestCase
     {
         $errors = [
             new AuthenticationException(),
-            new ScopeException('x'),
-            new PlanRequiredException('pro'),
+            new InsufficientScopeError('tmd:basic'),
+            new QuotaExceededError('simple'),
+            new BatchLimitExceededError(10, 5),
             new RateLimitException(10),
             new ApiException(500, 'err'),
             new TimeoutException(),

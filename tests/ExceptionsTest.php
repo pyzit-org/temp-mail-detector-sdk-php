@@ -8,10 +8,12 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Pyzit\TempMail\Exceptions\ApiException;
 use Pyzit\TempMail\Exceptions\AuthenticationException;
-use Pyzit\TempMail\Exceptions\PlanRequiredException;
+use Pyzit\TempMail\Exceptions\InsufficientScopeError;
+use Pyzit\TempMail\Exceptions\QuotaExceededError;
+use Pyzit\TempMail\Exceptions\BatchLimitExceededError;
 use Pyzit\TempMail\Exceptions\PyzitException;
 use Pyzit\TempMail\Exceptions\RateLimitException;
-use Pyzit\TempMail\Exceptions\ScopeException;
+use Pyzit\TempMail\Exceptions\ValidationError;
 use Pyzit\TempMail\Exceptions\TimeoutException;
 
 class ExceptionsTest extends TestCase
@@ -48,9 +50,11 @@ class ExceptionsTest extends TestCase
     {
         return [
             'AuthenticationException' => [AuthenticationException::class],
-            'ScopeException'          => [ScopeException::class],
-            'PlanRequiredException'   => [PlanRequiredException::class],
+            'InsufficientScopeError'  => [InsufficientScopeError::class],
+            'QuotaExceededError'      => [QuotaExceededError::class],
+            'BatchLimitExceededError' => [BatchLimitExceededError::class],
             'RateLimitException'      => [RateLimitException::class],
+            'ValidationError'         => [ValidationError::class],
             'ApiException'            => [ApiException::class],
             'TimeoutException'        => [TimeoutException::class],
         ];
@@ -61,7 +65,7 @@ class ExceptionsTest extends TestCase
     public function testAuthenticationExceptionDefaultMessage(): void
     {
         $e = new AuthenticationException();
-        $this->assertStringContainsString('Invalid or missing', $e->getMessage());
+        $this->assertStringContainsString('Invalid or inactive', $e->getMessage());
     }
 
     public function testAuthenticationExceptionCustomMessage(): void
@@ -70,42 +74,58 @@ class ExceptionsTest extends TestCase
         $this->assertSame('Access denied (403).', $e->getMessage());
     }
 
-    // ── ScopeException ────────────────────────────────────────────
-
-    public function testScopeExceptionStoresScope(): void
+    public function testAuthenticationExceptionHasStatusCode(): void
     {
-        $e = new ScopeException('detailed:tempemail_check');
-        $this->assertSame('detailed:tempemail_check', $e->getRequiredScope());
+        $e = new AuthenticationException();
+        $this->assertSame(401, $e->statusCode);
     }
 
-    public function testScopeExceptionIncludesScopeInMessage(): void
+    // ── InsufficientScopeError ─────────────────────────────────────
+
+    public function testInsufficientScopeErrorStoresScope(): void
     {
-        $e = new ScopeException('bulk:validate');
-        $this->assertStringContainsString('bulk:validate', $e->getMessage());
+        $e = new InsufficientScopeError('tmd:detailed');
+        $this->assertSame('tmd:detailed', $e->getRequiredScope());
     }
 
-    public function testScopeExceptionDefaultsToEmptyScope(): void
+    public function testInsufficientScopeErrorIncludesScopeInMessage(): void
     {
-        $this->assertSame('', (new ScopeException())->getRequiredScope());
+        $e = new InsufficientScopeError('tmd:basic');
+        $this->assertStringContainsString('tmd:basic', $e->getMessage());
     }
 
-    // ── PlanRequiredException ─────────────────────────────────────
-
-    public function testPlanRequiredExceptionStoresPlan(): void
+    public function testInsufficientScopeErrorDefaultsToEmptyScope(): void
     {
-        $e = new PlanRequiredException('business');
-        $this->assertSame('business', $e->getRequiredPlan());
+        $this->assertSame('', (new InsufficientScopeError())->getRequiredScope());
     }
 
-    public function testPlanRequiredExceptionIncludesPlanInMessage(): void
+    // ── QuotaExceededError ────────────────────────────────────────
+
+    public function testQuotaExceededErrorStoresQuotaType(): void
     {
-        $e = new PlanRequiredException('pro');
-        $this->assertStringContainsString('pro', $e->getMessage());
+        $e = new QuotaExceededError('detailed');
+        $this->assertSame('detailed', $e->getQuotaType());
     }
 
-    public function testPlanRequiredExceptionDefaultsToPro(): void
+    public function testQuotaExceededErrorDefaultsToSimple(): void
     {
-        $this->assertSame('pro', (new PlanRequiredException())->getRequiredPlan());
+        $this->assertSame('simple', (new QuotaExceededError())->getQuotaType());
+    }
+
+    // ── BatchLimitExceededError ───────────────────────────────────
+
+    public function testBatchLimitExceededErrorStoresMaxAllowed(): void
+    {
+        $e = new BatchLimitExceededError(50, 15);
+        $this->assertSame(50, $e->getMaxAllowed());
+        $this->assertSame(15, $e->getAttempted());
+    }
+
+    public function testBatchLimitExceededErrorDefaults(): void
+    {
+        $e = new BatchLimitExceededError();
+        $this->assertSame(10, $e->getMaxAllowed());
+        $this->assertSame(0, $e->getAttempted());
     }
 
     // ── RateLimitException ────────────────────────────────────────
@@ -125,6 +145,26 @@ class ExceptionsTest extends TestCase
     public function testRateLimitExceptionDefaultsTo60(): void
     {
         $this->assertSame(60, (new RateLimitException())->getRetryAfter());
+    }
+
+    public function testRateLimitExceptionHasStatusCode(): void
+    {
+        $e = new RateLimitException();
+        $this->assertSame(429, $e->statusCode);
+    }
+
+    // ── ValidationError ────────────────────────────────────────────
+
+    public function testValidationErrorStoresFieldErrors(): void
+    {
+        $fieldErrors = ['email' => ['Invalid email format']];
+        $e = new ValidationError($fieldErrors);
+        $this->assertSame($fieldErrors, $e->getFieldErrors());
+    }
+
+    public function testValidationErrorDefaultsToEmptyArray(): void
+    {
+        $this->assertSame([], (new ValidationError())->getFieldErrors());
     }
 
     // ── ApiException ──────────────────────────────────────────────
@@ -169,9 +209,11 @@ class ExceptionsTest extends TestCase
     {
         $exceptions = [
             new AuthenticationException(),
-            new ScopeException('x:y'),
-            new PlanRequiredException('pro'),
+            new InsufficientScopeError('tmd:basic'),
+            new QuotaExceededError('simple'),
+            new BatchLimitExceededError(10, 5),
             new RateLimitException(10),
+            new ValidationError(),
             new ApiException(500, 'err'),
             new TimeoutException(),
         ];
