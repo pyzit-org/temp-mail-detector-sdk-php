@@ -27,28 +27,33 @@ final class TempMailClient
     private HttpClient $http;
 
     /**
-     * @param string $apiToken  Your Pyzit API token.
-     * @param int    $timeout   Request timeout in seconds. Default: 10.
-     * @param string $baseUrl   Override the API base URL (useful for tests).
+     * @param string $apiKey    Your Pyzit API token (pyzit_live_...).
+     * @param string $baseUrl   Override the API base URL. Default: https://api.pyzit.com.
+     * @param int    $timeout   Request timeout in seconds. Default: 5.
+     * @param int    $maxRetries Max retry attempts on 429 and 5xx. Default: 2.
+     * @param bool   $failOpen  When true, network errors return synthetic clean results. Default: false.
      */
     public function __construct(
-        string $apiToken,
-        int    $timeout = 10,
-        string $baseUrl = 'https://api-tempmail.pyzit.com/v1',
+        string $apiKey,
+        string $baseUrl = 'https://api.pyzit.com',
+        int    $timeout = 5,
+        int    $maxRetries = 2,
+        bool   $failOpen = false,
     ) {
-        $this->http = new HttpClient($apiToken, $timeout, $baseUrl);
+        $this->http = new HttpClient($apiKey, $baseUrl, $timeout, $maxRetries, $failOpen);
     }
 
     /**
-     * Quick disposable check — free tier.
+     * Quick disposable check.
      *
-     * POST /v1/validate/check/
+     * POST /v1/tmd/check/
      *
      * @param string $email The email address to validate.
      * @return CheckResult
      *
      * @throws \Pyzit\TempMail\Exceptions\AuthenticationException
-     * @throws \Pyzit\TempMail\Exceptions\ScopeException
+     * @throws \Pyzit\TempMail\Exceptions\InsufficientScopeError
+     * @throws \Pyzit\TempMail\Exceptions\QuotaExceededError
      * @throws \Pyzit\TempMail\Exceptions\RateLimitException
      * @throws \Pyzit\TempMail\Exceptions\ApiException
      * @throws \Pyzit\TempMail\Exceptions\TimeoutException
@@ -60,21 +65,21 @@ final class TempMailClient
      */
     public function check(string $email): CheckResult
     {
-        $data = $this->http->post('/validate/check/', ['email' => $email]);
+        $data = $this->http->post('/v1/tmd/check/', ['email' => $email]);
         return CheckResult::fromArray($data);
     }
 
     /**
-     * Full DNS + reputation analysis — Pro tier.
+     * Full DNS + reputation analysis.
      *
-     * POST /v1/validate/detailed/
+     * POST /v1/tmd/detailed/
      *
      * @param string $email The email address to analyse.
      * @return DetailedResult
      *
-     * @throws \Pyzit\TempMail\Exceptions\PlanRequiredException   if not on Pro plan.
-     * @throws \Pyzit\TempMail\Exceptions\ScopeException          if token scope is missing.
      * @throws \Pyzit\TempMail\Exceptions\AuthenticationException
+     * @throws \Pyzit\TempMail\Exceptions\InsufficientScopeError
+     * @throws \Pyzit\TempMail\Exceptions\QuotaExceededError
      * @throws \Pyzit\TempMail\Exceptions\RateLimitException
      * @throws \Pyzit\TempMail\Exceptions\ApiException
      * @throws \Pyzit\TempMail\Exceptions\TimeoutException
@@ -87,21 +92,22 @@ final class TempMailClient
      */
     public function detailed(string $email): DetailedResult
     {
-        $data = $this->http->post('/validate/detailed/', ['email' => $email]);
+        $data = $this->http->post('/v1/tmd/detailed/', ['email' => $email]);
         return DetailedResult::fromArray($data);
     }
 
     /**
-     * Validate many emails in one API call — Business tier.
+     * Validate many emails in one API call.
      *
-     * POST /v1/validate/bulk/
+     * POST /v1/tmd/bulk/
      *
-     * @param string[] $emails Array of email addresses (max 100 per request).
+     * @param string[] $emails Array of email addresses.
      * @return BulkResult
      *
-     * @throws \Pyzit\TempMail\Exceptions\PlanRequiredException   if not on Business plan.
-     * @throws \Pyzit\TempMail\Exceptions\ScopeException
      * @throws \Pyzit\TempMail\Exceptions\AuthenticationException
+     * @throws \Pyzit\TempMail\Exceptions\InsufficientScopeError
+     * @throws \Pyzit\TempMail\Exceptions\QuotaExceededError
+     * @throws \Pyzit\TempMail\Exceptions\BatchLimitExceededError
      * @throws \Pyzit\TempMail\Exceptions\RateLimitException
      * @throws \Pyzit\TempMail\Exceptions\ApiException
      * @throws \Pyzit\TempMail\Exceptions\TimeoutException
@@ -112,7 +118,7 @@ final class TempMailClient
      */
     public function bulk(array $emails): BulkResult
     {
-        $data = $this->http->post('/validate/bulk/', ['emails' => $emails]);
+        $data = $this->http->post('/v1/tmd/bulk/', ['emails' => $emails]);
         return BulkResult::fromArray($data);
     }
 }
