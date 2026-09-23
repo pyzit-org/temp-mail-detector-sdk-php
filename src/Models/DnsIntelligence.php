@@ -18,14 +18,21 @@ final class DnsIntelligence
 
     public static function fromArray(array $data): self
     {
-        $mx = array_map(
-            fn(array $r) => MxRecord::fromArray($r),
-            (array)($data['mx_records'] ?? [])
-        );
+        $mxRecords = [];
+        if (isset($data['mx_records']) && is_array($data['mx_records'])) {
+            foreach ($data['mx_records'] as $r) {
+                if (is_array($r)) {
+                    $mxRecords[] = MxRecord::fromArray($r);
+                } else {
+                    // Handle case where mx_records might be simple strings
+                    $mxRecords[] = MxRecord::fromArray(['exchange' => (string)$r]);
+                }
+            }
+        }
 
         return new self(
             hasMx:      (bool)  ($data['has_mx']      ?? false),
-            mxRecords:  $mx,
+            mxRecords:  $mxRecords,
             hasARecord: (bool)  ($data['has_a_record'] ?? false),
             hasSpf:     (bool)  ($data['has_spf']      ?? false),
             hasDmarc:   (bool)  ($data['has_dmarc']    ?? false),

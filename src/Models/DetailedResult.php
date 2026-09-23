@@ -3,7 +3,7 @@
 namespace Pyzit\TempMail\Models;
 
 /**
- * Result from the Pro /v1/validate/detailed/ endpoint.
+ * Result from the /v1/tmd/detailed/ endpoint.
  */
 final class DetailedResult
 {
@@ -11,19 +11,15 @@ final class DetailedResult
         public readonly string $email,
         public readonly string $domain,
         public readonly bool $isDisposable,
-        public readonly string $status,
+        public readonly bool $isTrusted,
+        public readonly string $classification,
         public readonly float $reputationScore,
-
-        /**
-         * "low", "medium", or "high"
-         */
         public readonly string $riskLevel,
-
-        /**
-         * "accept", "review", "challenge", or "reject" — always lowercase
-         */
-        public readonly string $recommendation,
+        public readonly bool $isValidFormat,
+        public readonly ?string $ruleApplied,
         public readonly DetailedDetails $details,
+        public readonly string $status,
+        public readonly string $recommendation,
     ) {}
 
     /**
@@ -35,17 +31,44 @@ final class DetailedResult
             email: (string) ($data['email'] ?? ''),
             domain: (string) ($data['domain'] ?? ''),
             isDisposable: (bool) ($data['is_disposable'] ?? false),
-            status: (string) ($data['status'] ?? 'unknown'),
+            isTrusted: (bool) ($data['is_trusted'] ?? false),
+            classification: (string) ($data['classification'] ?? 'unknown'),
             reputationScore: (float) ($data['reputation_score'] ?? 0.0),
-            riskLevel: (string) (strtolower($data['risk_level'] ?? 'unknown')),
-            recommendation: (string) (strtolower($data['recommendation'] ?? 'review')),
+            riskLevel: strtolower((string) ($data['risk_level'] ?? 'unknown')),
+            isValidFormat: (bool) ($data['is_valid_format'] ?? false),
+            ruleApplied: ($data['rule_applied'] ?? null) !== null ? (string) $data['rule_applied'] : null,
             details: DetailedDetails::fromArray((array) ($data['details'] ?? [])),
+            status: (string) ($data['status'] ?? 'unknown'),
+            recommendation: strtolower((string) ($data['recommendation'] ?? 'review')),
         );
     }
 
     /**
-     * True when the API says to outright block this email.
-     * recommendation === "reject"
+     * True when the email is NOT disposable.
+     */
+    public function isClean(): bool
+    {
+        return !$this->isDisposable;
+    }
+
+    /**
+     * True when the risk level is high.
+     */
+    public function isHighRisk(): bool
+    {
+        return $this->riskLevel === 'high';
+    }
+
+    /**
+     * True when the domain is in the trusted whitelist.
+     */
+    public function isTrustedDomain(): bool
+    {
+        return $this->isTrusted;
+    }
+
+    /**
+     * True when the email should be rejected.
      */
     public function shouldReject(): bool
     {
@@ -53,8 +76,7 @@ final class DetailedResult
     }
 
     /**
-     * True when the API recommends extra verification (CAPTCHA, OTP, etc).
-     * recommendation === "challenge"
+     * True when the email should be challenged (e.g., CAPTCHA).
      */
     public function shouldChallenge(): bool
     {
@@ -62,8 +84,7 @@ final class DetailedResult
     }
 
     /**
-     * True when the API recommends accepting the email without friction.
-     * recommendation === "accept"
+     * True when the email should be accepted.
      */
     public function shouldAccept(): bool
     {
