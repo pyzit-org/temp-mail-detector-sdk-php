@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace Pyzit\TempMail\Exceptions;
 
 /**
- * Thrown when the API returns HTTP 402 or a plan-related 403.
- * The requested endpoint requires a higher subscription plan.
+ * Raised on HTTP 402 or 403 when a higher plan is required.
  */
-class PlanRequiredException extends PyzitException
+final class PlanRequiredException extends PyzitException
 {
-    public function __construct(private readonly string $requiredPlan = 'pro')
+    private string $requiredPlan;
+
+    public function __construct(string $requiredPlan = "pro", string $message = "")
     {
-        parent::__construct("This endpoint requires the '{$requiredPlan}' plan or higher.");
+        $this->requiredPlan = $requiredPlan;
+        parent::__construct(
+            $message ?: "This feature requires the {$requiredPlan} plan or higher."
+        );
     }
 
     public function getRequiredPlan(): string

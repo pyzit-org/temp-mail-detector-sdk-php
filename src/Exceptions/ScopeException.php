@@ -5,17 +5,22 @@ declare(strict_types=1);
 namespace Pyzit\TempMail\Exceptions;
 
 /**
- * Thrown when the API returns HTTP 403 due to a missing token scope.
- * Enable the required scope in your Pyzit dashboard under API Tokens.
+ * Raised on HTTP 403 when token lacks required scope.
+ * 
+ * This is a more specific version of InsufficientScopeError that includes
+ * the actual scope string that was required.
  */
-class ScopeException extends PyzitException
+final class ScopeException extends InsufficientScopeError
 {
-    public function __construct(private readonly string $requiredScope = '')
+    private string $requiredScope;
+
+    public function __construct(string $requiredScope = "", string $message = "")
     {
-        $msg = $requiredScope !== ''
-            ? "Token missing required scope: '{$requiredScope}'. Enable it in your Pyzit dashboard."
-            : 'Token is missing a required scope. Check your Pyzit dashboard.';
-        parent::__construct($msg);
+        $this->requiredScope = $requiredScope;
+        parent::__construct(
+            $message ?: "Token missing required scope: {$requiredScope}",
+            $requiredScope
+        );
     }
 
     public function getRequiredScope(): string
