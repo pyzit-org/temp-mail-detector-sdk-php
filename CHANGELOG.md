@@ -1,30 +1,26 @@
 # Changelog
 
-## 1.0.0 — Major Release (API Architecture Update)
+## [1.0.0] - 2026-11-07 — Major Release (TMD Platform v1.0 Alignment)
 
-### Breaking Changes
-- **Updated API architecture**: All plans can now access all endpoints (check, detailed, bulk)
-- **New quota model**: Separate simple and detailed quotas per plan
-- **Token format**: New tokens use `pyzit_live_...` prefix
-- **Exception hierarchy**: Enhanced with more specific exception types
-- **Model structure**: DetailedResult now includes nested comprehensive analysis data
+### ⚠️ Breaking Changes
+- **API Endpoints**: Migrated from `/v1/validate/...` to `/v1/tmd/check/`, `/v1/tmd/detailed/`, and `/v1/tmd/bulk/`.
+- **Token Format**: Standardized on `pyzit_live_...` prefix.
+- **Exceptions**:
+  - HTTP 402 now throws `QuotaExceededError` (monthly quota exhausted).
+  - HTTP 403 now throws `InsufficientScopeError` (token lacks required scope).
+  - HTTP 400 with batch limits now throws `BatchLimitExceededError`.
+- **DetailedResult**:
+  - `reputationScore` is now an `int` on a `0..100` scale.
+  - Replaced legacy mock models with flat `DetailedDetails` (`hasMx`, `mxRecords`, `hasA`, `aRecords`, `hasSpf`, `spfRecord`, `hasDmarc`, `dmarcRecord`).
+- **BulkResult**:
+  - `total` property replaces legacy `processed`.
+  - `results` is now an array of `CheckResult` objects.
 
-### New Features
-- **Enhanced DetailedResult**: Added recommendation field ('accept', 'challenge', 'reject')
-- **Helper methods**: Added `shouldReject()`, `shouldChallenge()`, `shouldAccept()` to DetailedResult
-- **Risk level normalization**: Risk levels and recommendations are now normalized to lowercase
-- **Reputation score type**: Changed from int to float for more precise scoring
-- **Bulk result structure**: Changed from CheckResult array to email => boolean mapping
-- **New exception types**: Added `ScopeException` and `PlanRequiredException` for specific error handling
-- **Retry logic**: Automatic retry with exponential backoff for 429 and 5xx errors
-- **Fail-open configuration**: Added `failOpen` option to return clean results on network errors
-- **HTTP client improvements**: Enhanced error parsing and status code handling
-
-### API Changes
-- **402 status**: Now throws `PlanRequiredException` instead of `QuotaExceededError`
-- **403 status**: Enhanced handling to distinguish between scope errors and plan requirements
-- **429 status**: Default retry-after changed from 1 to 60 seconds
-- **DetailedResult structure**: Complete restructure with nested objects (reputation, signals, dnsIntelligence, stability)
+### ✨ New Features
+- **Privacy Relay Support**: Full detection of privacy relay mailboxes (Apple Private Relay, Firefox Relay, etc.) across `CheckResult`, `DetailedResult`, and `BulkResult` via `isPrivacyRelay`, `relayProvider`, `providerName`, and `privacyRelayEmails()`.
+- **Helper Methods**: Added `hasMx()`, `mxHostnames()`, `aIps()`, `shouldReject()`, `shouldFlag()` to `DetailedResult`.
+- **Automatic Retries**: Exponential backoff with jitter on 429 and 5xx responses, respecting `Retry-After`.
+- **Fail-Open Mode**: Configurable `failOpen` parameter returning safe clean result on network failures.
 
 ### Bug Fixes
 - Fixed scope parsing to handle multiple error message formats

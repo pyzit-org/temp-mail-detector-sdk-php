@@ -155,7 +155,10 @@ $result->isClean()      // false  (convenience method, opposite of isDisposable)
 CheckResult
 ├── email           string  — the email you submitted
 ├── isDisposable    bool    — true = block it
-├── status          string  — 'clean' | 'disposable'
+├── isPrivacyRelay  bool    — true = recognized privacy relay
+├── status          string  — 'clean' | 'disposable' | 'privacy_relay'
+├── relayProvider   ?string — provider slug (e.g. 'apple')
+├── providerName    ?string — provider display name
 └── isClean()       bool    — shorthand for not isDisposable
 ```
 
@@ -163,28 +166,25 @@ CheckResult
 
 ### `DetailedResult` ← `detailed(string $email)`
 
-Full forensic analysis. DNS records, SMTP probing, reputation scoring,
-domain age, signal breakdown. Uses `detailed_quota`. Requires `tmd:detailed` scope.
+Full forensic analysis. DNS records (MX, A, SPF, DMARC), reputation scoring,
+domain classification. Uses `detailed_quota`. Requires `tmd:detailed` scope.
 
 ```php
-$result = $client->detailed('suspicious@new-domain.io');
+$result = $client->detailed('hi@pyzit.com');
 
-$result->riskLevel       // 'high'
-$result->recommendation   // 'reject'
-$result->reputationScore  // 0.0
-$result->shouldReject()   // true  (convenience method)
+$result->riskLevel       // 'low'
+$result->classification  // 'trusted'
+$result->reputationScore // 100 (integer 0 to 100)
+$result->shouldReject()  // false  (convenience method)
 
 // DNS intelligence
-$result->details->dnsIntelligence->hasMx      // false
-$result->details->dnsIntelligence->hasSpf     // false
-
-// Signal breakdown
-$result->details->signals->negative  // ['no_mx_records', 'new_domain', ...]
-$result->details->signals->positive  // []
-
-// Domain stability
-$result->details->stability->domainAgeDays  // 0
-$result->details->stability->isNewDomain    // true
+$result->hasMx()                  // true
+$result->details->hasMx           // true
+$result->details->mxRecords       // ['mail1.pyzit.com', 'mail2.pyzit.com']
+$result->details->hasSpf          // true
+$result->details->spfRecord       // 'v=spf1 include:_spf.pyzit.com ~all'
+$result->details->hasDmarc        // true
+$result->details->dmarcRecord      // 'v=DMARC1; p=reject; sp=reject'
 ```
 
 **Response shape:**
@@ -194,74 +194,76 @@ DetailedResult
 ├── email              string
 ├── domain             string
 ├── isDisposable       bool
-├── status             string
-├── reputationScore    float   — 0.0 (worst) to 1.0 (best)
+├── isTrusted          bool
+├── isPrivacyRelay     bool
+├── relayProvider      ?string
+├── providerName       ?string
+├── classification     string  — 'trusted' | 'clean' | 'privacy_relay' | 'suspicious' | 'disposable'
+├── reputationScore    int     — 0 (worst) to 100 (best)
 ├── riskLevel          string  — 'low' | 'medium' | 'high'
-├── recommendation     string  — 'accept' | 'challenge' | 'reject'
-├── shouldReject()     bool    — shorthand: recommendation == 'reject'
-├── shouldChallenge()  bool    — shorthand: recommendation == 'challenge'
-├── shouldAccept()     bool    — shorthand: recommendation == 'accept'
+├── isValidFormat      bool
+├── cached             bool
+├── ruleApplied        ?string
+├── status             string  — 'clean' | 'disposable' | 'privacy_relay'
+├── isClean()          bool    — shorthand: not isDisposable
 ├── isHighRisk()       bool    — shorthand: riskLevel == 'high'
 ├── isTrustedDomain()  bool    — shorthand: isTrusted
-└── details
-    ├── reputation
-    │   ├── reputationScore      float
-    │   ├── isDisposable         bool
-    │   ├── disposableConfidence float
-    │   ├── riskLevel            string
-    │   └── recommendation        string
-    ├── signals
-    │   ├── positive   array    — trust signals
-    │   ├── negative   array    — risk signals
-    │   └── neutral    array    — ambiguous signals
-    ├── dnsIntelligence
-    │   ├── hasMx       bool
-    │   ├── mxRecords   array of MxRecord
-    │   ├── hasARecord  bool
-    │   ├── hasSpf      bool
-    │   ├── hasDmarc    bool
-    │   └── error       string|null
-    └── stability
-        ├── stabilityScore   float
-        ├── domainAgeDays   int
-        ├── isNewDomain     bool
-        └── riskFactors     array
+├── shouldReject()     bool    — shorthand: isDisposable or not isTrusted
+├── shouldFlag()       bool    — shorthand: classification in ('unknown', 'suspicious')
+├── hasMx()            bool    — shorthand: details->hasMx
+├── mxHostnames()      array   — exchange hostnames
+├── aIps()             array   — resolved A record IPs
+└── details            DetailedDetails
+    ├── hasMx       bool
+    ├── mxRecords   array of string
+    ├── hasA        bool
+    ├── aRecords    array of string
+    ├── hasSpf      bool
+    ├── spfRecord   ?string
+    ├── hasDmarc    bool
+    └── dmarcRecord ?string
 ```
 
 ---
 
 ### `BulkResult` ← `bulk(array $emails)`
 
-Validate multiple emails in a single API call. Uses `simple_quota`. Batch size depends on your plan (Free=10, Pro=50, Scale=100).
+Validate multiple emails in a single API call. Uses `simple_quota`. Batch size depends on your plan (Free=10, Starter=25, Pro=50, Growth=75, Scale=100).
 
 ```php
 $result = $client->bulk([
     'hi@pyzit.com',
-    'cyz@temp-mail.org',
     'user@mailnator.com',
+    'user@privaterelay.appleid.com',
 ]);
 
-$result->processed          // 3
-$result->results            // ['hi@pyzit.com' => false, 'cyz@temp-mail.org' => true, ...]
+$result->total                 // 3
+$result->status                // 'mixed'
+$result->disposableCount       // 1
+$result->privacyRelayCount     // 1
+$result->flaggedDomains        // ['mailnator.com']
 
-$result->disposableEmails() // ['cyz@temp-mail.org', 'user@mailnator.com']
-$result->cleanEmails()      // ['hi@pyzit.com']
+$result->cleanEmails()         // ['hi@pyzit.com', 'user@privaterelay.appleid.com']
+$result->disposableEmails()    // ['user@mailnator.com']
+$result->privacyRelayEmails()  // ['user@privaterelay.appleid.com']
 ```
 
 **Response shape:**
 
 ```
 BulkResult
-├── processed          int              — number of emails processed
-├── status             string           — 'clean' | 'disposable' | 'mixed'
-├── disposableCount    int              — number of disposable emails
-├── flaggedDomains     array            — unique disposable domains
-├── results            array            — ['email' => isDisposable]
-├── disposableEmails() array            — emails where isDisposable=true
-├── cleanEmails()      array            — emails where isDisposable=false
-├── isAllClean()       bool             — all emails are clean
-├── isAllDisposable()  bool             — all emails are disposable
-└── isMixed()          bool             — mixed clean/disposable
+├── total                  int              — number of emails processed
+├── status                 string           — 'clean' | 'disposable' | 'privacy_relay' | 'mixed'
+├── disposableCount        int              — number of disposable emails
+├── privacyRelayCount      int              — number of privacy relay emails
+├── flaggedDomains         array            — unique disposable domains
+├── results                array            — CheckResult[]
+├── cleanEmails()          array            — emails where isDisposable=false
+├── disposableEmails()     array            — emails where isDisposable=true
+├── privacyRelayEmails()   array            — emails where isPrivacyRelay=true
+├── isAllClean()           bool             — all emails are clean
+├── isAllDisposable()      bool             — all emails are disposable
+└── isMixed()              bool             — mixed results
 ```
 
 ---
@@ -276,12 +278,7 @@ Pyzit\TempMail\Models\
 │
 ├── CheckResult          ← client->check()
 ├── DetailedResult       ← client->detailed()
-│   └── DetailedDetails
-│       ├── ReputationDetail
-│       ├── Signals
-│       ├── DnsIntelligence
-│       │   └── MxRecord
-│       └── StabilityInfo
+│   └── DetailedDetails  (DNS intelligence)
 └── BulkResult           ← client->bulk()
 ```
 
