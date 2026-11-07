@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Pyzit\TempMail\Models;
 
-use Pyzit\TempMail\Models\CheckResult;
-
 /**
  * Result from the /v1/tmd/bulk/ endpoint.
  */
 final class BulkResult
 {
     /**
-     * @param array<string,bool> $results
+     * @param string[] $flaggedDomains
+     * @param CheckResult[] $results
      */
     public function __construct(
-        public readonly int $processed,
+        public readonly int $total,
         public readonly string $status,
         public readonly int $disposableCount,
+        public readonly int $privacyRelayCount,
         public readonly array $flaggedDomains,
         public readonly array $results,
     ) {}
@@ -28,17 +28,18 @@ final class BulkResult
         $rawResults = (array)($data['results'] ?? []);
         $results = [];
         foreach ($rawResults as $item) {
-            $email = (string)($item['email'] ?? '');
-            $isDisposable = (bool)($item['is_disposable'] ?? false);
-            $results[$email] = $isDisposable;
+            $results[] = CheckResult::fromArray((array)$item);
         }
 
+        $total = isset($data['total']) ? (int)$data['total'] : count($results);
+
         return new self(
-            processed: (int)($data['processed'] ?? count($results)),
-            status: (string)($data['status'] ?? 'unknown'),
-            disposableCount: (int)($data['disposable_count'] ?? 0),
-            flaggedDomains: (array)($data['flagged_domains'] ?? []),
-            results: $results,
+            total:               $total,
+            status:              (string)($data['status'] ?? 'clean'),
+            disposableCount:     (int)($data['disposable_count'] ?? 0),
+            privacyRelayCount:   (int)($data['privacy_relay_count'] ?? 0),
+            flaggedDomains:      array_values((array)($data['flagged_domains'] ?? [])),
+            results:             $results,
         );
     }
 
@@ -48,7 +49,13 @@ final class BulkResult
      */
     public function disposableEmails(): array
     {
-        return array_keys(array_filter($this->results, fn(bool $isDisposable) => $isDisposable));
+        $emails = [];
+        foreach ($this->results as $result) {
+            if ($result->isDisposable) {
+                $emails[] = $result->email;
+            }
+        }
+        return $emails;
     }
 
     /**
@@ -57,28 +64,43 @@ final class BulkResult
      */
     public function cleanEmails(): array
     {
-        return array_keys(array_filter($this->results, fn(bool $isDisposable) => !$isDisposable));
+        $emails = [];
+        foreach ($this->results as $result) {
+            if ($result->isClean()) {
+                $emails[] = $result->email;
+            }
+        }
+        return $emails;
     }
 
     /**
-     * True when all emails in the batch are clean.
+     * Return only the privacy relay email addresses.
+     * @return string[]
      */
+    public function privacyRelayEmails(): array
+    {
+        $emails = [];
+        foreach ($this->results as $result) {
+            if ($result->isPrivacyRelay) {
+                $emails[] = $result->email;
+            }
+        }
+        return $emails;
+    }
+
+    /** True when all emails in the batch are clean. */
     public function isAllClean(): bool
     {
         return $this->status === 'clean';
     }
 
-    /**
-     * True when all emails in the batch are disposable.
-     */
+    /** True when all emails in the batch are disposable. */
     public function isAllDisposable(): bool
     {
         return $this->status === 'disposable';
     }
 
-    /**
-     * True when the batch contains both clean and disposable emails.
-     */
+    /** True when the batch contains mixed results. */
     public function isMixed(): bool
     {
         return $this->status === 'mixed';

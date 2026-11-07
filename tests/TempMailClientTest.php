@@ -96,8 +96,9 @@ class TempMailClientTest extends TestCase
     {
         $client = $this->makeClient([Fixtures::detailedWithMxPayload()]);
         $r      = $client->detailed('hi@pyzit.com');
-        $this->assertTrue($r->details->dnsIntelligence->hasMx);
-        $this->assertSame('mail1.pyzit.com', $r->details->dnsIntelligence->mxRecords[0]->exchange);
+        $this->assertTrue($r->hasMx());
+        $this->assertTrue($r->details->hasMx);
+        $this->assertSame('mail1.pyzit.com', $r->details->mxRecords[0]);
     }
 
     // ── bulk() ────────────────────────────────────────────────────
@@ -107,9 +108,10 @@ class TempMailClientTest extends TestCase
         $client = $this->makeClient([Fixtures::bulkPayload()]);
         $r = $client->bulk(['hi@pyzit.com', 'x@mailnator.com']);
         $this->assertInstanceOf(BulkResult::class, $r);
-        $this->assertSame(4, $r->processed);
+        $this->assertSame(4, $r->total);
         $this->assertSame('mixed', $r->status);
         $this->assertSame(2, $r->disposableCount);
+        $this->assertSame(0, $r->privacyRelayCount);
         $this->assertContains('mailnator.com', $r->flaggedDomains);
     }
 

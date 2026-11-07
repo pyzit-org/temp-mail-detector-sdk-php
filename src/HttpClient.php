@@ -192,6 +192,7 @@ class HttpClient
         return [
             'email' => $body['email'] ?? '',
             'is_disposable' => false,
+            'is_privacy_relay' => false,
             'status' => 'clean',
         ];
     }
@@ -213,17 +214,19 @@ class HttpClient
 
         $detail = (string)($decoded['detail'] ?? '');
         $code = (string)($decoded['code'] ?? '');
-        $requiredPlan = (string)($decoded['required_plan'] ?? '');
 
         match (true) {
             $status === 401 => throw new AuthenticationException($detail ?: 'Invalid or inactive API key.'),
 
-            $status === 402 => throw new PlanRequiredException(
-                $requiredPlan ?: 'pro',
-                $detail ?: 'This feature requires a paid plan.'
+            $status === 402 || $code === 'quota_exceeded' || str_contains(strtolower($detail), 'quota') => throw new QuotaExceededError(
+                $this->parseQuotaType($detail),
+                $detail ?: 'Monthly quota exceeded. Please upgrade your plan.'
             ),
 
-            $status === 403 => $this->handle403($decoded, $detail, $requiredPlan),
+            $status === 403 => throw new InsufficientScopeError(
+                $this->parseRequiredScope($detail),
+                $detail ?: 'API key lacks required scope.'
+            ),
 
             $status === 400 => $this->handleBadRequest($decoded, $detail),
 

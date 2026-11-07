@@ -8,14 +8,12 @@ use PHPUnit\Framework\TestCase;
 use Pyzit\TempMail\HttpClient;
 use Pyzit\TempMail\Exceptions\AuthenticationException;
 use Pyzit\TempMail\Exceptions\ApiException;
-use Pyzit\TempMail\Exceptions\PlanRequiredException;
+use Pyzit\TempMail\Exceptions\QuotaExceededError;
+use Pyzit\TempMail\Exceptions\InsufficientScopeError;
+use Pyzit\TempMail\Exceptions\BatchLimitExceededError;
 use Pyzit\TempMail\Exceptions\RateLimitException;
-use Pyzit\TempMail\Exceptions\ScopeException;
+use Pyzit\TempMail\Exceptions\ValidationError;
 
-/**
- * Unit tests for HttpClient::raiseForStatus via a testable subclass.
- * We expose the private method through reflection to test HTTP error mapping.
- */
 class HttpClientErrorTest extends TestCase
 {
     private function callRaiseForStatus(int $status, string $headers, string $body): void
@@ -43,63 +41,54 @@ class HttpClientErrorTest extends TestCase
         $this->callRaiseForStatus(401, '', '{}');
     }
 
-    public function testStatus403WithScopeDetailThrowsScopeException(): void
+    public function testStatus403WithScopeDetailThrowsInsufficientScopeError(): void
     {
-        $this->expectException(ScopeException::class);
-        $body = json_encode(['detail' => 'Token missing required scope: detailed:tempemail_check']);
+        $this->expectException(InsufficientScopeError::class);
+        $body = json_encode(['detail' => "API key lacks required scope: 'tmd:detailed'."]);
         $this->callRaiseForStatus(403, '', $body);
     }
 
     public function testStatus403ScopeExceptionContainsScope(): void
     {
-        $body = json_encode(['detail' => 'Token missing required scope: bulk:validate']);
+        $body = json_encode(['detail' => "API key lacks required scope: 'tmd:basic'."]);
         try {
             $this->callRaiseForStatus(403, '', $body);
-            $this->fail('Expected ScopeException');
-        } catch (ScopeException $e) {
-            $this->assertSame('bulk:validate', $e->getRequiredScope());
+            $this->fail('Expected InsufficientScopeError');
+        } catch (InsufficientScopeError $e) {
+            $this->assertSame('tmd:basic', $e->getRequiredScope());
         }
     }
 
-    public function testStatus403WithRequiredPlanThrowsPlanRequiredException(): void
+    public function testStatus402ThrowsQuotaExceededError(): void
     {
-        $this->expectException(PlanRequiredException::class);
-        $body = json_encode(['required_plan' => 'pro']);
-        $this->callRaiseForStatus(403, '', $body);
-    }
-
-    public function testStatus403WithRequiredPlanStoresPlan(): void
-    {
-        $body = json_encode(['required_plan' => 'business']);
-        try {
-            $this->callRaiseForStatus(403, '', $body);
-            $this->fail('Expected PlanRequiredException');
-        } catch (PlanRequiredException $e) {
-            $this->assertSame('business', $e->getRequiredPlan());
-        }
-    }
-
-    public function testStatus403FallbackThrowsAuthenticationException(): void
-    {
-        $this->expectException(AuthenticationException::class);
-        $this->callRaiseForStatus(403, '', '{}');
-    }
-
-    public function testStatus402ThrowsPlanRequiredException(): void
-    {
-        $this->expectException(PlanRequiredException::class);
-        $body = json_encode(['required_plan' => 'pro']);
+        $this->expectException(QuotaExceededError::class);
+        $body = json_encode([
+            'detail' => 'You have exceeded your monthly detailed check quota. Please upgrade your plan.',
+            'code' => 'quota_exceeded',
+        ]);
         $this->callRaiseForStatus(402, '', $body);
     }
 
-    public function testStatus402DefaultsToPro(): void
+    public function testStatus402ParsesQuotaType(): void
     {
+        $body = json_encode([
+            'detail' => 'You have exceeded your monthly detailed check quota.',
+        ]);
         try {
-            $this->callRaiseForStatus(402, '', '{}');
-            $this->fail('Expected PlanRequiredException');
-        } catch (PlanRequiredException $e) {
-            $this->assertSame('pro', $e->getRequiredPlan());
+            $this->callRaiseForStatus(402, '', $body);
+            $this->fail('Expected QuotaExceededError');
+        } catch (QuotaExceededError $e) {
+            $this->assertSame('detailed', $e->getQuotaType());
         }
+    }
+
+    public function testStatus400BatchLimitThrowsBatchLimitExceededError(): void
+    {
+        $this->expectException(BatchLimitExceededError::class);
+        $body = json_encode([
+            'detail' => 'Your plan allows a maximum of 10 emails per bulk request. Upgrade your plan for higher limits.',
+        ]);
+        $this->callRaiseForStatus(400, '', $body);
     }
 
     public function testStatus429ThrowsRateLimitException(): void

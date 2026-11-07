@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Pyzit\TempMail\Models;
 
@@ -7,19 +9,26 @@ namespace Pyzit\TempMail\Models;
  */
 final class DetailedResult
 {
+    /**
+     * @param array<string,mixed>|null $ruleDetails
+     */
     public function __construct(
         public readonly string $email,
         public readonly string $domain,
         public readonly bool $isDisposable,
         public readonly bool $isTrusted,
         public readonly string $classification,
-        public readonly float $reputationScore,
+        public readonly int $reputationScore,
         public readonly string $riskLevel,
         public readonly bool $isValidFormat,
-        public readonly ?string $ruleApplied,
         public readonly DetailedDetails $details,
-        public readonly string $status,
-        public readonly string $recommendation,
+        public readonly bool $isPrivacyRelay = false,
+        public readonly ?string $relayProvider = null,
+        public readonly ?string $providerName = null,
+        public readonly bool $cached = false,
+        public readonly ?string $ruleApplied = null,
+        public readonly ?array $ruleDetails = null,
+        public readonly string $status = 'clean',
     ) {}
 
     /**
@@ -27,67 +36,75 @@ final class DetailedResult
      */
     public static function fromArray(array $data): self
     {
+        $isDisposable = (bool)($data['is_disposable'] ?? false);
+        $isPrivacyRelay = (bool)($data['is_privacy_relay'] ?? false);
+        $status = (string)($data['status'] ?? ($isPrivacyRelay ? 'privacy_relay' : ($isDisposable ? 'disposable' : 'clean')));
+
         return new self(
-            email: (string) ($data['email'] ?? ''),
-            domain: (string) ($data['domain'] ?? ''),
-            isDisposable: (bool) ($data['is_disposable'] ?? false),
-            isTrusted: (bool) ($data['is_trusted'] ?? false),
-            classification: (string) ($data['classification'] ?? 'unknown'),
-            reputationScore: (float) ($data['reputation_score'] ?? 0.0),
-            riskLevel: strtolower((string) ($data['risk_level'] ?? 'unknown')),
-            isValidFormat: (bool) ($data['is_valid_format'] ?? false),
-            ruleApplied: ($data['rule_applied'] ?? null) !== null ? (string) $data['rule_applied'] : null,
-            details: DetailedDetails::fromArray((array) ($data['details'] ?? [])),
-            status: (string) ($data['status'] ?? 'unknown'),
-            recommendation: strtolower((string) ($data['recommendation'] ?? 'review')),
+            email:           (string)($data['email'] ?? ''),
+            domain:          (string)($data['domain'] ?? ''),
+            isDisposable:    $isDisposable,
+            isTrusted:       (bool)($data['is_trusted'] ?? false),
+            classification:  (string)($data['classification'] ?? 'unknown'),
+            reputationScore: (int)($data['reputation_score'] ?? 0),
+            riskLevel:       strtolower((string)($data['risk_level'] ?? 'low')),
+            isValidFormat:   (bool)($data['is_valid_format'] ?? true),
+            details:         DetailedDetails::fromArray((array)($data['details'] ?? [])),
+            isPrivacyRelay:  $isPrivacyRelay,
+            relayProvider:   isset($data['relay_provider']) ? (string)$data['relay_provider'] : null,
+            providerName:    isset($data['provider_name']) ? (string)$data['provider_name'] : null,
+            cached:          (bool)($data['cached'] ?? false),
+            ruleApplied:     isset($data['rule_applied']) ? (string)$data['rule_applied'] : null,
+            ruleDetails:     isset($data['rule_details']) && is_array($data['rule_details']) ? $data['rule_details'] : null,
+            status:          $status,
         );
     }
 
-    /**
-     * True when the email is NOT disposable.
-     */
+    /** Shorthand: True when the email is NOT disposable. */
     public function isClean(): bool
     {
         return !$this->isDisposable;
     }
 
-    /**
-     * True when the risk level is high.
-     */
+    /** Shorthand: True when risk level is high. */
     public function isHighRisk(): bool
     {
         return $this->riskLevel === 'high';
     }
 
-    /**
-     * True when the domain is in the trusted whitelist.
-     */
+    /** Shorthand: True when the domain is trusted. */
     public function isTrustedDomain(): bool
     {
         return $this->isTrusted;
     }
 
-    /**
-     * True when the email should be rejected.
-     */
+    /** True when the email should be rejected (disposable or untrusted). */
     public function shouldReject(): bool
     {
-        return $this->recommendation === 'reject';
+        return $this->isDisposable || !$this->isTrusted;
     }
 
-    /**
-     * True when the email should be challenged (e.g., CAPTCHA).
-     */
-    public function shouldChallenge(): bool
+    /** True when the email needs manual review. */
+    public function shouldFlag(): bool
     {
-        return $this->recommendation === 'challenge';
+        return $this->classification === 'unknown' || $this->classification === 'suspicious';
     }
 
-    /**
-     * True when the email should be accepted.
-     */
-    public function shouldAccept(): bool
+    /** True if active MX records were resolved. */
+    public function hasMx(): bool
     {
-        return $this->recommendation === 'accept';
+        return $this->details->hasMx;
+    }
+
+    /** Return exchange hostnames. */
+    public function mxHostnames(): array
+    {
+        return $this->details->mxRecords;
+    }
+
+    /** Return resolved A record IP addresses. */
+    public function aIps(): array
+    {
+        return $this->details->aRecords;
     }
 }
